@@ -35,4 +35,20 @@ return [
         ],
     ],
 
+    'sso_unuja' => [
+        'url' => env('SSO_UNUJA_URL'),
+        'app_id' => env('SSO_UNUJA_APP_ID'),
+        'dev_id' => env('SSO_UNUJA_DEV_ID'),
+        'x_token' => env('SSO_UNUJA_X_TOKEN'),
+    ],
+
+    'campus_api' => [
+        'base_url' => env('CAMPUS_API_BASE_URL', 'https://sso.unuja.ac.id/api/portal/data'),
+        'app_id' => env('CAMPUS_API_APP_ID'),
+        'dev_id' => env('CAMPUS_API_DEV_ID'),
+        'x_token' => env('CAMPUS_API_X_TOKEN'),
+        'user_agent' => env('CAMPUS_API_USER_AGENT', 'Project-3in1/1.0'),
+        'default_password' => env('CAMPUS_DEFAULT_PASSWORD'),
+    ],
+
 ];
