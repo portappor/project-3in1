@@ -59,23 +59,59 @@ class AuthController extends Controller
         // 2. Jika user belum ada di database lokal, cek langsung ke API Kampus UNUJA (On-Demand Provisioning)
         if (! $user) {
             try {
-                $searchResult = $campusApi->getMahasiswa(['search' => $username]);
-                $records = $searchResult['data']['data'] ?? $searchResult['data'] ?? [];
-                $matchedMhs = collect($records)->first(function ($m) use ($username) {
-                    return (string) ($m['nim'] ?? '') === $username;
+                // 2a. Cari pada data Dosen di API Kampus (berdasarkan NIDN / NIP / ID Penduduk)
+                $dosenResult = $campusApi->getDosen(['search' => $username]);
+                $dosenRecords = $dosenResult['data']['data'] ?? $dosenResult['data'] ?? [];
+                $matchedDosen = collect($dosenRecords)->first(function ($d) use ($username) {
+                    $nidn = (string) ($d['nidn'] ?? '');
+                    $nip = (string) ($d['nip'] ?? '');
+                    $kodeDosen = (string) ($d['kode_dosen'] ?? '');
+                    $idPenduduk = (string) ($d['id_penduduk'] ?? '');
+                    $userField = (string) ($d['username'] ?? '');
+
+                    return $nidn === $username
+                        || $nip === $username
+                        || $kodeDosen === $username
+                        || $idPenduduk === $username
+                        || $userField === $username;
                 });
 
-                if ($matchedMhs) {
+                if ($matchedDosen) {
+                    $rawName = $matchedDosen['nama_penduduk'] ?? $matchedDosen['nama'] ?? $matchedDosen['nama_dosen'] ?? $matchedDosen['name'] ?? 'Dosen UNUJA';
+                    $gelarDepan = ! empty($matchedDosen['gelar_depan']) ? trim((string) $matchedDosen['gelar_depan']) . ' ' : '';
+                    $gelarBelakang = ! empty($matchedDosen['gelar_belakang']) ? ', ' . trim((string) $matchedDosen['gelar_belakang']) : '';
+                    $name = trim($gelarDepan . $rawName . $gelarBelakang);
+
                     $user = User::create([
-                        'username' => (string) $matchedMhs['nim'],
-                        'name' => $matchedMhs['nama'] ?? 'Mahasiswa UNUJA',
-                        'email' => $matchedMhs['email'] ?? null,
-                        'role' => 'mahasiswa',
-                        'prodi' => $matchedMhs['prodi'] ?? 'Teknik',
-                        'fakultas' => $matchedMhs['fakultas'] ?? 'Fakultas Teknik',
+                        'username' => (string) ($matchedDosen['nidn'] ?? $matchedDosen['nip'] ?? $username),
+                        'name' => $name,
+                        'email' => $matchedDosen['email'] ?? $matchedDosen['email_kampus'] ?? null,
+                        'role' => 'dosen',
+                        'prodi' => $matchedDosen['prodi'] ?? $matchedDosen['nama_prodi'] ?? $matchedDosen['homebase'] ?? 'Teknik Elektro',
+                        'fakultas' => $matchedDosen['fakultas'] ?? $matchedDosen['nama_fakultas'] ?? 'Fakultas Teknik',
                         'status_aktif' => true,
                         'password' => Hash::make($password),
                     ]);
+                } else {
+                    // 2b. Cari pada data Mahasiswa di API Kampus (berdasarkan NIM)
+                    $searchResult = $campusApi->getMahasiswa(['search' => $username]);
+                    $records = $searchResult['data']['data'] ?? $searchResult['data'] ?? [];
+                    $matchedMhs = collect($records)->first(function ($m) use ($username) {
+                        return (string) ($m['nim'] ?? '') === $username;
+                    });
+
+                    if ($matchedMhs) {
+                        $user = User::create([
+                            'username' => (string) $matchedMhs['nim'],
+                            'name' => $matchedMhs['nama'] ?? 'Mahasiswa UNUJA',
+                            'email' => $matchedMhs['email'] ?? null,
+                            'role' => 'mahasiswa',
+                            'prodi' => $matchedMhs['prodi'] ?? 'Teknik',
+                            'fakultas' => $matchedMhs['fakultas'] ?? 'Fakultas Teknik',
+                            'status_aktif' => true,
+                            'password' => Hash::make($password),
+                        ]);
+                    }
                 }
             } catch (\Throwable $e) {
                 // Abaikan jika API kampus sedang tidak merespons
@@ -86,9 +122,9 @@ class AuthController extends Controller
         if ($user) {
             $defaultPassword = config('services.campus_api.default_password');
 
-            // Pengguna (khususnya Mahasiswa) dapat masuk menggunakan:
+            // Pengguna (Dosen & Mahasiswa) dapat masuk menggunakan:
             // a. Password yang tersimpan
-            // b. NIM masing-masing (NIM sebagai password default awal)
+            // b. NIDN / NIM masing-masing (NIDN/NIM sebagai password default awal)
             // c. Kata sandi 'password'
             // d. Konfigurasi CAMPUS_DEFAULT_PASSWORD di .env
             $isPasswordValid = Hash::check($password, $user->password)
@@ -116,7 +152,7 @@ class AuthController extends Controller
         return back()
             ->withInput($request->only('username', 'remember'))
             ->withErrors([
-                'username' => 'NIM / NIDN atau kata sandi tidak cocok. Gunakan NIM Anda sebagai Username dan Password awal.',
+                'username' => 'NIM / NIDN atau kata sandi tidak cocok. Gunakan NIDN / NIM Anda sebagai Username dan Password awal.',
             ]);
     }
 

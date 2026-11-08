@@ -30,13 +30,17 @@ class VirtualClassroomController extends Controller
             ->get();
 
         if ($recentRooms->isEmpty()) {
+            do {
+                $sampleCode = '3IN1-' . Str::upper(Str::random(5));
+            } while (VirtualClassroom::where('room_code', $sampleCode)->exists());
+
             $sampleRoom = VirtualClassroom::create([
-                'room_code' => '3IN1-WEB8',
-                'title' => 'Pemrograman Web Lanjut - Pertemuan 8',
+                'room_code' => $sampleCode,
+                'title' => 'Sesi Pembelajaran Interaktif ' . ($user->prodi ?? 'Teknik'),
                 'dosen_id' => $user->id,
                 'status' => 'live',
                 'current_slide' => 1,
-                'total_slides' => 12,
+                'total_slides' => 1,
             ]);
 
             ClassroomAttendance::firstOrCreate([
@@ -71,16 +75,42 @@ class VirtualClassroomController extends Controller
 
             // Prioritaskan jadwal yang diampu Dosen bersangkutan
             $userName = strtolower($user->name);
-            $jadwalMengajar = array_values(array_filter($allJadwal, function ($j) use ($userName) {
-                $dosenNama = strtolower($j['dosen'] ?? '');
-                return str_contains($userName, 'syahid') && str_contains($dosenNama, 'syahid')
-                    || str_contains($userName, 'muhtadi') && str_contains($dosenNama, 'muhtadi')
-                    || str_contains($userName, 'fuad') && str_contains($dosenNama, 'fuad')
-                    || str_contains($userName, 'nurul') && str_contains($dosenNama, 'nurul');
+            $userNidn = strtolower((string) $user->username);
+            $userProdi = strtolower((string) ($user->prodi ?? ''));
+
+            $nameParts = array_filter(
+                explode(' ', preg_replace('/[^a-z0-9]/', ' ', $userName)),
+                fn ($p) => strlen($p) >= 4 && ! in_array($p, ['kom', 'dosen', 'teknik', 'ir', 'prof', 'dra', 'drs'], true)
+            );
+
+            $jadwalMengajar = array_values(array_filter($allJadwal, function ($j) use ($nameParts, $userNidn) {
+                $dosenNama = strtolower($j['dosen'] ?? $j['nama_dosen'] ?? '');
+                $jadwalNidn = strtolower((string) ($j['nidn'] ?? $j['nip'] ?? ''));
+
+                if ($jadwalNidn && $jadwalNidn === $userNidn) {
+                    return true;
+                }
+
+                foreach ($nameParts as $part) {
+                    if (str_contains($dosenNama, $part)) {
+                        return true;
+                    }
+                }
+
+                return false;
             }));
 
+            // Jika belum ada jadwal spesifik atas nama dosen, saring berdasarkan prodi atau tampilkan jadwal akademik
             if (empty($jadwalMengajar)) {
-                $jadwalMengajar = $allJadwal;
+                $prodiJadwal = array_values(array_filter($allJadwal, function ($j) use ($userProdi) {
+                    if (empty($userProdi)) {
+                        return false;
+                    }
+                    $jProdi = strtolower($j['prodi'] ?? '');
+                    return str_contains($jProdi, $userProdi) || str_contains($userProdi, $jProdi);
+                }));
+
+                $jadwalMengajar = ! empty($prodiJadwal) ? $prodiJadwal : $allJadwal;
             }
         } catch (\Throwable $e) {
             $jadwalMengajar = [
@@ -134,7 +164,9 @@ class VirtualClassroomController extends Controller
             'title' => 'required|string|max:150',
         ]);
 
-        $roomCode = '3IN1-' . Str::upper(Str::random(5));
+        do {
+            $roomCode = '3IN1-' . Str::upper(Str::random(5));
+        } while (VirtualClassroom::where('room_code', $roomCode)->exists());
 
         $classroom = VirtualClassroom::create([
             'room_code' => $roomCode,

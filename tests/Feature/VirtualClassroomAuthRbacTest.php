@@ -225,5 +225,115 @@ class VirtualClassroomAuthRbacTest extends TestCase
         $this->assertGuest();
         $response->assertRedirect(route('login'));
     }
+
+    public function test_dosen_can_login_with_nidn_as_password(): void
+    {
+        $dosen = User::create([
+            'username' => '0703109403',
+            'name' => 'AHMAD MUHTADI',
+            'role' => 'dosen',
+            'prodi' => 'Teknik Elektro',
+            'status_aktif' => true,
+            'password' => Hash::make('0703109403'),
+        ]);
+
+        $response = $this->post('/login', [
+            'username' => '0703109403',
+            'password' => '0703109403',
+        ]);
+
+        $this->assertAuthenticatedAs($dosen);
+        $response->assertRedirect(route('dosen.dashboard'));
+    }
+
+    public function test_dosen_can_login_with_default_password_even_if_hash_is_nidn(): void
+    {
+        $dosen = User::create([
+            'username' => '0706119303',
+            'name' => 'FUAD HASAN, S.T.',
+            'role' => 'dosen',
+            'prodi' => 'Teknik Elektro',
+            'status_aktif' => true,
+            'password' => Hash::make('0706119303'),
+        ]);
+
+        $response = $this->post('/login', [
+            'username' => '0706119303',
+            'password' => 'password',
+        ]);
+
+        $this->assertAuthenticatedAs($dosen);
+        $response->assertRedirect(route('dosen.dashboard'));
+    }
+
+    public function test_dosen_on_demand_provisioning_from_campus_api(): void
+    {
+        $this->mock(\App\Services\CampusApiService::class, function ($mock) {
+            $mock->shouldReceive('getDosen')
+                ->with(['search' => '0719117002'])
+                ->once()
+                ->andReturn([
+                    'data' => [
+                        'data' => [
+                            [
+                                'nidn' => '0719117002',
+                                'nama_penduduk' => 'SULISTIYANTO',
+                                'gelar_belakang' => 'M.T.',
+                                'prodi' => 'Teknik Elektro',
+                                'fakultas' => 'Teknik',
+                                'email' => 'sulis@kampus.ac.id',
+                            ],
+                        ],
+                    ],
+                ]);
+        });
+
+        $this->assertDatabaseMissing('users', ['username' => '0719117002']);
+
+        $response = $this->post('/login', [
+            'username' => '0719117002',
+            'password' => '0719117002',
+        ]);
+
+        $response->assertRedirect(route('dosen.dashboard'));
+        $this->assertAuthenticated();
+
+        $user = User::where('username', '0719117002')->first();
+        $this->assertNotNull($user);
+        $this->assertSame('dosen', $user->role);
+        $this->assertSame('SULISTIYANTO, M.T.', $user->name);
+        $this->assertSame('Teknik Elektro', $user->prodi);
+    }
+
+    public function test_multiple_dosen_can_access_dashboard_without_room_code_collision(): void
+    {
+        $dosen1 = User::create([
+            'username' => '0703109401',
+            'name' => 'Dosen Satu',
+            'role' => 'dosen',
+            'prodi' => 'Teknik Elektro',
+            'status_aktif' => true,
+            'password' => Hash::make('password'),
+        ]);
+
+        $dosen2 = User::create([
+            'username' => '0703109402',
+            'name' => 'Dosen Dua',
+            'role' => 'dosen',
+            'prodi' => 'Teknik Informatika',
+            'status_aktif' => true,
+            'password' => Hash::make('password'),
+        ]);
+
+        $res1 = $this->actingAs($dosen1)->get(route('dosen.dashboard'));
+        $res1->assertStatus(200);
+
+        $res2 = $this->actingAs($dosen2)->get(route('dosen.dashboard'));
+        $res2->assertStatus(200);
+
+        $rooms = \App\Models\VirtualClassroom::whereIn('dosen_id', [$dosen1->id, $dosen2->id])->get();
+        $this->assertCount(2, $rooms);
+        $this->assertNotSame($rooms[0]->room_code, $rooms[1]->room_code);
+    }
 }
 
