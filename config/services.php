@@ -51,4 +51,8 @@ return [
         'default_password' => env('CAMPUS_DEFAULT_PASSWORD'),
     ],
 
+    'jitsi' => [
+        'domain' => env('JITSI_DOMAIN', 'meet.jit.si'),
+    ],
+
 ];

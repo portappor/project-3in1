@@ -61,85 +61,284 @@
     <!-- Alert / Toast Container -->
     <div id="toast-container" class="fixed top-5 right-5 z-50 space-y-2 pointer-events-none"></div>
 
-    <!-- Main Virtual Classroom Stage (Split Grid) -->
-    <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
+    <!-- Main Virtual Classroom Stage (Resizable Flex Container) -->
+    <div id="classroom-split-container" class="flex flex-col lg:flex-row gap-0 lg:gap-2 items-stretch relative">
 
-        <!-- Stage Area: Presentation & Slide Synchronizer (Col 3) -->
-        <div class="lg:col-span-3 bg-slate-900 rounded-3xl overflow-hidden shadow-xl border border-slate-800 flex flex-col h-[600px]">
+        <!-- Stage Area: Presentation & Slide Synchronizer -->
+        <div id="stage-panel" class="w-full lg:w-[73%] bg-slate-900 rounded-3xl overflow-hidden shadow-xl border border-slate-800 flex flex-col h-[600px] relative transition-none">
 
             <!-- Slide Stage Header -->
-            <div class="bg-slate-800/90 px-4 py-2.5 border-b border-slate-700 flex justify-between items-center text-xs text-slate-300">
-                <div class="flex items-center space-x-2 truncate max-w-md">
-                    <i class="fa-solid fa-file-pdf text-rose-400"></i>
+            <div class="bg-slate-800/90 px-4 py-2 border-b border-slate-700 flex flex-wrap justify-between items-center gap-2 text-xs text-slate-300">
+                <div class="flex items-center space-x-2 truncate max-w-xs sm:max-w-md">
+                    <i class="fa-solid fa-chalkboard-user text-purple-400"></i>
                     <span id="presentation-name" class="font-medium truncate">
                         {{ $classroom->presentation_name ?? 'Materi_Presentasi_Default.pdf' }}
                     </span>
+                    <span id="presentation-badge" class="{{ $classroom->presentation_path ? '' : 'hidden' }} text-[10px] {{ in_array($classroom->presentation_type ?? 'pdf', ['pptx', 'ppt'], true) ? 'bg-amber-900/60 text-amber-300 border-amber-700' : 'bg-emerald-900/60 text-emerald-300 border-emerald-700' }} px-1.5 py-0.5 rounded border">
+                        {{ Str::upper($classroom->presentation_type ?? 'PDF') }} Aktif
+                    </span>
                     @if($classroom->presentation_path)
-                        <span class="text-[10px] bg-emerald-900/60 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-700">PDF Aktif</span>
+                        <a id="presentation-download-btn" href="{{ route('classroom.presentation.file', $classroom->room_code) }}" target="_blank" download class="text-[10px] text-slate-400 hover:text-white px-1.5 py-0.5 rounded bg-slate-700/60 hover:bg-slate-700 border border-slate-600 transition flex items-center space-x-1" title="Unduh File Materi Asli">
+                            <i class="fa-solid fa-download"></i>
+                            <span class="hidden md:inline">Unduh</span>
+                        </a>
                     @endif
                 </div>
-                <div class="flex items-center space-x-2 font-mono">
-                    <span class="text-slate-400">Slide:</span>
-                    <span id="current-slide" class="font-bold text-white px-2 py-0.5 bg-slate-700 rounded">{{ $classroom->current_slide ?? 1 }}</span>
-                    <span class="text-slate-500">/ <span id="total-slides">{{ $classroom->total_slides ?? 1 }}</span></span>
+
+                <!-- Stage View Mode Switcher (Presentation vs Jitsi Video vs Split) -->
+                <div class="flex items-center bg-slate-900/90 p-0.5 rounded-xl border border-slate-700/80">
+                    <button type="button" onclick="setStageMode('presentation')" id="btn-mode-presentation"
+                        class="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition flex items-center space-x-1"
+                        title="Tampilan Penuh Dokumen Presentasi">
+                        <i class="fa-solid fa-file-pdf"></i>
+                        <span class="hidden sm:inline">Presentasi</span>
+                    </button>
+                    <button type="button" onclick="setStageMode('split')" id="btn-mode-split"
+                        class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-purple-600 text-white transition flex items-center space-x-1 shadow-xs"
+                        title="Tampilan Bersisian: Slide & Tatap Muka Video">
+                        <i class="fa-solid fa-table-columns"></i>
+                        <span class="hidden sm:inline">Split 50:50</span>
+                    </button>
+                    <button type="button" onclick="setStageMode('video')" id="btn-mode-video"
+                        class="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition flex items-center space-x-1"
+                        title="Tampilan Penuh Tatap Muka Video Conference (Jitsi)">
+                        <i class="fa-solid fa-video text-emerald-400"></i>
+                        <span class="hidden sm:inline">Tatap Muka</span>
+                    </button>
+                </div>
+
+                <div class="flex items-center space-x-3">
+                    @if(!$isHost)
+                        <!-- Student Sync Lock Button & Re-sync -->
+                        <div class="flex items-center space-x-2">
+                            <button type="button" id="sync-lock-btn" onclick="toggleSyncLock()"
+                                class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-900/60 text-emerald-300 border border-emerald-600 hover:bg-emerald-800/60 transition flex items-center space-x-1.5 shadow-xs"
+                                title="Kunci slide ke presentasi Dosen">
+                                <i id="sync-lock-icon" class="fa-solid fa-lock text-emerald-400"></i>
+                                <span id="sync-lock-text">Sync Lock: Aktif</span>
+                            </button>
+                            <button type="button" id="resync-btn" onclick="resyncToHost()"
+                                class="hidden px-2.5 py-1 rounded-lg text-xs font-semibold bg-purple-600 hover:bg-purple-700 text-white transition flex items-center space-x-1 shadow-xs animate-pulse"
+                                title="Lompat kembali ke slide yang sedang diterangkan Dosen">
+                                <i class="fa-solid fa-arrows-rotate"></i>
+                                <span>Ikuti Dosen (Slide <span id="host-slide-num">1</span>)</span>
+                            </button>
+                        </div>
+                    @endif
+
+                    <div class="flex items-center space-x-2 font-mono">
+                        <span class="text-slate-400">Slide:</span>
+                        <span id="current-slide" class="font-bold text-white px-2 py-0.5 bg-slate-700 rounded">{{ $classroom->current_slide ?? 1 }}</span>
+                        <span class="text-slate-500">/ <span id="total-slides">{{ $classroom->total_slides ?? 1 }}</span></span>
+                    </div>
                 </div>
             </div>
 
-            <!-- Slide Canvas Viewer Stage -->
-            <div class="flex-1 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 p-4 flex flex-col items-center justify-center text-center relative overflow-hidden">
+            <!-- Slide & Video Stage Viewport Container -->
+            <div id="stage-viewport" class="flex-1 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 p-2 sm:p-4 flex flex-col lg:flex-row items-center justify-center text-center relative overflow-hidden gap-3">
 
-                <!-- PDF.js Canvas Container -->
-                <div id="pdf-container" class="{{ $classroom->presentation_path ? '' : 'hidden' }} w-full h-full flex items-center justify-center relative">
-                    <canvas id="pdf-render-canvas" class="max-h-[480px] max-w-full rounded-xl shadow-2xl object-contain border border-slate-700"></canvas>
-                    <div id="pdf-loader" class="hidden absolute inset-0 bg-slate-900/80 backdrop-blur-xs flex items-center justify-center text-white space-x-2">
-                        <i class="fa-solid fa-spinner fa-spin text-xl text-blue-400"></i>
-                        <span class="text-xs">Memuat Slide PDF...</span>
+                <!-- Floating Mode Notice when in Tatap Muka mode -->
+                <div id="video-mode-notice" class="hidden absolute top-3 left-4 right-4 z-20 bg-slate-900/90 backdrop-blur border border-purple-500/40 text-white px-3.5 py-2 rounded-xl flex items-center justify-between text-xs shadow-2xl">
+                    <div class="flex items-center space-x-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                        <span class="font-semibold text-slate-200">Mode Tatap Muka Aktif (Fokus Layar Penuh Video)</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button type="button" onclick="setStageMode('split')" class="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-[11px] font-bold rounded-lg transition shadow flex items-center space-x-1">
+                            <i class="fa-solid fa-table-columns"></i>
+                            <span>Buka Slide (Split 50:50)</span>
+                        </button>
                     </div>
                 </div>
 
-                <!-- Fallback Interactive Slide when no PDF is uploaded yet -->
-                <div id="fallback-slide" class="{{ $classroom->presentation_path ? 'hidden' : '' }} w-full max-w-2xl bg-white text-slate-800 rounded-2xl shadow-2xl p-8 aspect-video flex flex-col justify-between border-4 border-slate-800 relative">
-                    <div class="flex justify-between items-start border-b border-slate-100 pb-3">
-                        <span class="text-xs font-bold text-blue-700 tracking-wider uppercase">3in1 Ruang Kelas Virtual</span>
-                        <span class="text-xs font-mono text-slate-400" id="slide-num-preview">SLIDE {{ $classroom->current_slide ?? 1 }}</span>
+                <!-- Presentation Section -->
+                <div id="presentation-stage-section" class="w-full lg:w-1/2 h-full flex flex-col items-center justify-center relative transition-all duration-300">
+                    <!-- PDF.js Canvas Container -->
+                    <div id="pdf-container" class="{{ $classroom->presentation_path && ($classroom->presentation_type ?? 'pdf') === 'pdf' ? '' : 'hidden' }} w-full h-full flex items-center justify-center relative">
+                        <canvas id="pdf-render-canvas" class="max-h-[480px] max-w-full rounded-xl shadow-2xl object-contain border border-slate-700"></canvas>
+                        <div id="pdf-loader" class="hidden absolute inset-0 bg-slate-900/80 backdrop-blur-xs flex items-center justify-center text-white space-x-2">
+                            <i class="fa-solid fa-spinner fa-spin text-xl text-blue-400"></i>
+                            <span class="text-xs">Memuat Slide PDF...</span>
+                        </div>
                     </div>
 
-                    <div class="py-6 space-y-3">
-                        <h2 id="slide-title" class="text-2xl font-black text-slate-900">
-                            {{ $classroom->title ?? 'Sesi Perkuliahan Interaktif' }}
-                        </h2>
-                        <p id="slide-subtitle" class="text-sm text-slate-600 max-w-lg mx-auto">
-                            Menghubungkan Dosen sebagai Host dan Mahasiswa sebagai Participant dalam ruang pembelajaran sinkron.
-                        </p>
-                        @if($isHost)
-                            <div class="pt-2">
-                                <label class="cursor-pointer inline-flex items-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-semibold shadow-md transition">
-                                    <i class="fa-solid fa-file-arrow-up"></i>
-                                    <span>Unggah Dokumen Presentasi PDF</span>
-                                    <input type="file" accept="application/pdf" class="hidden" onchange="uploadPresentationFile(this)">
-                                </label>
+                    <!-- PPTX / PPT Interactive Slide View Container -->
+                    <div id="pptx-container" class="{{ $classroom->presentation_path && in_array($classroom->presentation_type ?? 'pdf', ['pptx', 'ppt'], true) ? '' : 'hidden' }} w-full h-full flex flex-col justify-between bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl shadow-2xl p-6 border-2 border-slate-700 relative overflow-y-auto">
+                        <div class="flex justify-between items-center border-b border-slate-700/80 pb-2.5">
+                            <span class="text-xs font-bold text-amber-400 flex items-center space-x-1.5 tracking-wider uppercase">
+                                <i class="fa-solid fa-file-powerpoint text-amber-500"></i>
+                                <span>PowerPoint Slide Deck</span>
+                            </span>
+                            <span class="text-xs font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700" id="pptx-slide-badge">SLIDE {{ $classroom->current_slide ?? 1 }}</span>
+                        </div>
+
+                        <div class="py-4 my-auto space-y-4 text-left px-2">
+                            <h2 id="pptx-slide-title" class="text-xl sm:text-2xl font-black text-white tracking-tight leading-snug">
+                                {{ $classroom->presentation_name ?? 'Presentasi Slide Kuliah' }}
+                            </h2>
+                            
+                            <div id="pptx-slide-body" class="space-y-2 text-xs sm:text-sm text-slate-200">
+                                <!-- Populated dynamically by renderPptxSlide() -->
                             </div>
-                        @else
-                            <p class="text-xs text-slate-400 italic">Menunggu Dosen menampilkan materi slide kuliah...</p>
-                        @endif
+
+                            <div id="pptx-slide-images" class="flex flex-wrap gap-2 pt-2">
+                                <!-- Populated dynamically if images exist -->
+                            </div>
+                        </div>
+
+                        <div class="flex justify-between items-center text-[11px] text-slate-400 pt-2.5 border-t border-slate-800">
+                            <span>Host: {{ $classroom->dosen->name ?? 'Dosen Pengampu' }}</span>
+                            <span class="text-amber-400 font-semibold flex items-center space-x-1">
+                                <i class="fa-solid fa-bolt text-xs"></i>
+                                <span>Sinkronisasi Slide PPT Otomatis</span>
+                            </span>
+                        </div>
                     </div>
 
-                    <div class="flex justify-between items-center text-xs text-slate-400 pt-3 border-t border-slate-100">
-                        <span>Host: {{ $classroom->dosen->name ?? 'Dosen Pengampu' }}</span>
-                        <span class="flex items-center text-emerald-600 font-semibold">
-                            <span class="w-2 h-2 rounded-full bg-emerald-500 mr-1.5 animate-pulse"></span> Sinkronisasi Real-Time
-                        </span>
+                    <!-- Fallback Interactive Slide when no file is uploaded yet -->
+                    <div id="fallback-slide" class="{{ $classroom->presentation_path ? 'hidden' : '' }} w-full max-w-2xl bg-white text-slate-800 rounded-2xl shadow-2xl p-8 aspect-video flex flex-col justify-between border-4 border-slate-800 relative">
+                        <div class="flex justify-between items-start border-b border-slate-100 pb-3">
+                            <span class="text-xs font-bold text-blue-700 tracking-wider uppercase">3in1 Ruang Kelas Virtual</span>
+                            <span class="text-xs font-mono text-slate-400" id="slide-num-preview">SLIDE {{ $classroom->current_slide ?? 1 }}</span>
+                        </div>
+
+                        <div class="py-6 space-y-3">
+                            <h2 id="slide-title" class="text-2xl font-black text-slate-900">
+                                {{ $classroom->title ?? 'Sesi Perkuliahan Interaktif' }}
+                            </h2>
+                            <p id="slide-subtitle" class="text-sm text-slate-600 max-w-lg mx-auto">
+                                Menghubungkan Dosen sebagai Host dan Mahasiswa sebagai Participant dalam ruang pembelajaran sinkron.
+                            </p>
+                            @if($isHost)
+                                <div class="pt-2">
+                                    <label class="cursor-pointer inline-flex items-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-semibold shadow-md transition">
+                                        <i class="fa-solid fa-file-arrow-up"></i>
+                                        <span>Unggah Dokumen Materi (PDF / PPT / PPTX)</span>
+                                        <input type="file" accept=".pdf,.ppt,.pptx,application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation" class="hidden" onchange="uploadPresentationFile(this)">
+                                    </label>
+                                </div>
+                            @else
+                                <p class="text-xs text-slate-400 italic">Menunggu Dosen menampilkan materi slide kuliah...</p>
+                            @endif
+                        </div>
+
+                        <div class="flex justify-between items-center text-xs text-slate-400 pt-3 border-t border-slate-100">
+                            <span>Host: {{ $classroom->dosen->name ?? 'Dosen Pengampu' }}</span>
+                            <span class="flex items-center text-emerald-600 font-semibold">
+                                <span class="w-2 h-2 rounded-full bg-emerald-500 mr-1.5 animate-pulse"></span> Sinkronisasi Real-Time
+                            </span>
+                        </div>
                     </div>
+                </div>
+
+                <!-- Video Conference Section (Dual-Engine: Native WebRTC 3-in-1 & Jitsi Meet API) -->
+                <div id="jitsi-video-section" class="w-full lg:w-1/2 h-full flex flex-col relative rounded-2xl overflow-hidden border border-slate-700 bg-slate-950 transition-all duration-300">
+                    
+                    <!-- Video Engine Switcher Bar -->
+                    <div class="z-20 bg-slate-900/90 backdrop-blur px-3 py-1.5 border-b border-slate-800 flex items-center justify-between text-xs">
+                        <div class="flex items-center space-x-2">
+                            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                            <span id="video-engine-status" class="font-semibold text-slate-200 text-[11px]">Tatap Muka WebRTC (Langsung Aktif)</span>
+                        </div>
+                        <div class="flex items-center bg-slate-950/80 p-0.5 rounded-lg border border-slate-700/60 text-[10px]">
+                            <button type="button" id="btn-engine-webrtc" onclick="switchVideoEngine('webrtc')"
+                                class="px-2 py-0.5 rounded font-bold bg-purple-600 text-white transition shadow-xs" title="Gunakan Kamera & Mic WebRTC langsung di browser">
+                                <i class="fa-solid fa-camera mr-1"></i>WebRTC
+                            </button>
+                            <button type="button" id="btn-engine-jitsi" onclick="switchVideoEngine('jitsi')"
+                                class="px-2 py-0.5 rounded font-medium text-slate-400 hover:text-white transition" title="Gunakan Server Video Conference Jitsi Meet">
+                                <i class="fa-solid fa-server mr-1"></i>Jitsi Meet
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Engine 1: Native WebRTC 3-in-1 Video Stage (Default / Zero Iframe Refusal) -->
+                    <div id="webrtc-stage" class="w-full flex-1 relative flex flex-col items-center justify-center bg-slate-950 overflow-hidden">
+                        <!-- Local Camera Stream Video -->
+                        <video id="local-camera-feed" autoplay playsinline muted class="w-full h-full object-cover"></video>
+
+                        <!-- Screen Share Overlay (Active when sharing screen) -->
+                        <div id="screen-share-overlay" class="hidden absolute inset-0 z-10 bg-black flex flex-col">
+                            <div class="bg-slate-900/90 px-3 py-1.5 flex items-center justify-between text-[11px] text-white border-b border-slate-800">
+                                <span class="flex items-center space-x-1.5 text-amber-400 font-semibold">
+                                    <i class="fa-solid fa-desktop animate-pulse"></i>
+                                    <span>Layar Anda Sedang Dibagikan (Screen Share)</span>
+                                </span>
+                                <button type="button" onclick="stopScreenShare()" class="px-2.5 py-0.5 rounded bg-rose-600 hover:bg-rose-700 text-white text-[10px] font-bold transition">
+                                    Hentikan Share
+                                </button>
+                            </div>
+                            <video id="screen-share-feed" autoplay playsinline class="w-full flex-1 object-contain bg-black"></video>
+                        </div>
+
+                        <!-- Camera OFF / Avatar Placeholder -->
+                        <div id="camera-off-placeholder" class="hidden absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-b from-slate-900 via-slate-950 to-indigo-950/70 text-white space-y-4 p-4 z-5">
+                            <div class="relative">
+                                <div class="w-24 h-24 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center text-3xl font-extrabold shadow-2xl border-4 border-slate-700/80">
+                                    {{ strtoupper(substr($user->name, 0, 2)) }}
+                                </div>
+                                <span id="webrtc-avatar-mic-badge" class="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-emerald-500 border-2 border-slate-900 flex items-center justify-center text-white text-xs shadow">
+                                    <i class="fa-solid fa-microphone"></i>
+                                </span>
+                            </div>
+                            <div class="text-center">
+                                <h3 class="text-base font-bold text-white">{{ $user->name }}</h3>
+                                <p class="text-xs text-purple-300 font-medium">{{ $isHost ? 'Host Dosen Pengampu' : 'Mahasiswa Peserta' }}</p>
+                                <p id="camera-off-desc" class="text-[11px] text-slate-400 mt-1">Kamera Dinonaktifkan</p>
+                            </div>
+                            <button type="button" onclick="toggleCam()" class="px-3.5 py-1.5 rounded-xl bg-purple-600/80 hover:bg-purple-600 text-white text-xs font-semibold border border-purple-400/40 transition shadow flex items-center space-x-1.5">
+                                <i class="fa-solid fa-video"></i>
+                                <span>Aktifkan Kamera</span>
+                            </button>
+                        </div>
+
+                        <!-- Bottom-left Participant Name & Mic Status Pill -->
+                        <div class="absolute bottom-3 left-3 z-10 bg-slate-950/80 backdrop-blur px-2.5 py-1 rounded-lg border border-slate-700/80 flex items-center space-x-2 text-white text-[11px] shadow-lg pointer-events-none">
+                            <i id="webrtc-stream-mic-icon" class="fa-solid fa-microphone text-emerald-400"></i>
+                            <span class="font-medium text-slate-200">{{ $user->name }} (Anda)</span>
+                            <span class="text-[9px] px-1 rounded bg-purple-900/60 text-purple-300 border border-purple-700">{{ $isHost ? 'Host' : 'Peserta' }}</span>
+                        </div>
+
+                        <!-- Top-right In-call Participant Counter -->
+                        <div class="absolute top-3 right-3 z-10 bg-slate-950/70 backdrop-blur px-2 py-0.5 rounded-md border border-slate-700/60 text-[10px] text-slate-300 pointer-events-none">
+                            <i class="fa-solid fa-users text-purple-400 mr-1"></i>
+                            <span id="webrtc-participant-badge">1 Di Ruang Tatap Muka</span>
+                        </div>
+                    </div>
+
+                    <!-- Engine 2: Jitsi Meet Stage (Opsi Eksternal) -->
+                    <div id="jitsi-stage" class="hidden w-full flex-1 relative flex flex-col bg-slate-950 overflow-hidden">
+                        <!-- Jitsi Notice Info -->
+                        <div class="bg-amber-950/80 border-b border-amber-800/80 px-3 py-1.5 text-amber-200 text-[11px] flex items-center justify-between">
+                            <span class="truncate pr-2">
+                                <i class="fa-solid fa-circle-info mr-1 text-amber-400"></i>
+                                Jitsi Publik: Jika muncul 'waiting for moderator', klik <strong>"Masuk"</strong> untuk login room.
+                            </span>
+                            <button type="button" onclick="switchVideoEngine('webrtc')" class="shrink-0 px-2 py-0.5 bg-amber-600 hover:bg-amber-700 text-white rounded text-[10px] font-bold">
+                                Pakai WebRTC Lokal
+                            </button>
+                        </div>
+                        <div id="jitsi-meet-container" class="w-full flex-1"></div>
+                        <!-- Jitsi Loading Placeholder -->
+                        <div id="jitsi-loader" class="pointer-events-none absolute inset-0 bg-slate-900/90 flex flex-col items-center justify-center text-white space-y-3 z-10 transition-opacity duration-500">
+                            <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 to-purple-600 flex items-center justify-center animate-pulse shadow-lg">
+                                <i class="fa-solid fa-video text-xl"></i>
+                            </div>
+                            <p class="text-xs font-semibold tracking-wide">Menghubungkan ke API Video Conference Jitsi Meet...</p>
+                            <span class="text-[11px] text-slate-400">meet.jit.si</span>
+                        </div>
+                    </div>
+
                 </div>
 
                 <!-- Raise Hand Alert Banner for Host -->
-                <div id="raise-hand-notification" class="hidden absolute top-4 right-4 bg-amber-500 text-white text-xs font-bold px-3.5 py-2 rounded-xl shadow-xl flex items-center space-x-2 animate-bounce">
+                <div id="raise-hand-notification" class="hidden absolute top-4 right-4 bg-amber-500 text-white text-xs font-bold px-3.5 py-2 rounded-xl shadow-xl flex items-center space-x-2 animate-bounce z-20">
                     <i class="fa-solid fa-hand text-base"></i>
                     <span id="raise-hand-notif-text">Ada Mahasiswa yang Mengangkat Tangan!</span>
                 </div>
 
                 <!-- Host Mic Mute Banner for Participant -->
-                <div id="mic-locked-banner" class="{{ ($classroom->is_all_mic_muted ?? false) ? '' : 'hidden' }} absolute bottom-3 left-4 right-4 bg-rose-900/90 text-rose-200 text-xs px-3 py-1.5 rounded-xl border border-rose-700 flex items-center justify-center space-x-2">
+                <div id="mic-locked-banner" class="{{ ($classroom->is_all_mic_muted ?? false) ? '' : 'hidden' }} absolute bottom-3 left-4 right-4 bg-rose-900/90 text-rose-200 text-xs px-3 py-1.5 rounded-xl border border-rose-700 flex items-center justify-center space-x-2 z-20">
                     <i class="fa-solid fa-microphone-slash"></i>
                     <span>Host mengaktifkan MUTE ALL. Mikrofon seluruh peserta dinonaktifkan sementara.</span>
                 </div>
@@ -148,7 +347,7 @@
             <!-- Bottom Control Bar -->
             <div class="bg-slate-800 px-6 py-3 border-t border-slate-700 flex flex-wrap justify-between items-center gap-3">
 
-                <!-- Media Toggles (Mic / Cam) -->
+                <!-- Media Toggles (Mic / Cam / Share Screen) -->
                 <div class="flex items-center space-x-2">
                     <button type="button" id="mic-btn" onclick="toggleMyMic()" class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-700 hover:bg-slate-600 text-white transition flex items-center space-x-2">
                         <i id="mic-icon" class="fa-solid fa-microphone"></i>
@@ -157,6 +356,10 @@
                     <button type="button" id="cam-btn" onclick="toggleCam()" class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-700 hover:bg-slate-600 text-white transition flex items-center space-x-2">
                         <i id="cam-icon" class="fa-solid fa-video"></i>
                         <span id="cam-text">Kamera</span>
+                    </button>
+                    <button type="button" id="share-screen-btn" onclick="toggleShareScreen()" class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-700 hover:bg-slate-600 text-white transition flex items-center space-x-2" title="Bagikan Layar Anda (Share Screen)">
+                        <i id="share-screen-icon" class="fa-solid fa-desktop"></i>
+                        <span id="share-screen-text">Share Screen</span>
                     </button>
                 </div>
 
@@ -169,15 +372,28 @@
                         <button type="button" onclick="nextSlide()" class="px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition shadow-md shadow-purple-900/50">
                             Next <i class="fa-solid fa-chevron-right ml-1"></i>
                         </button>
-                        <label class="cursor-pointer px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold transition inline-flex items-center space-x-1.5 border border-slate-600">
-                            <i class="fa-solid fa-upload"></i>
-                            <span>Upload PDF</span>
-                            <input type="file" accept="application/pdf" class="hidden" onchange="uploadPresentationFile(this)">
+                        <label class="cursor-pointer px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold transition inline-flex items-center space-x-1.5 border border-slate-600" title="Unggah Dokumen PDF atau Presentasi PowerPoint (PPT / PPTX)">
+                            <i class="fa-solid fa-file-arrow-up text-amber-400"></i>
+                            <span>Upload Materi (PDF/PPT)</span>
+                            <input type="file" accept=".pdf,.ppt,.pptx,application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation" class="hidden" onchange="uploadPresentationFile(this)">
                         </label>
                     </div>
                 @else
-                    <!-- Participant Interactive Button (Raise Hand) -->
-                    <div>
+                    <!-- Participant Interactive Button (Sync Navigation & Raise Hand) -->
+                    <div class="flex items-center space-x-2">
+                        <div id="student-nav-group" class="hidden items-center space-x-1.5 mr-2">
+                            <button type="button" onclick="studentPrevSlide()" class="px-2.5 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold transition flex items-center space-x-1" title="Slide Sebelumnya (Mode Bebas)">
+                                <i class="fa-solid fa-chevron-left"></i>
+                                <span>Prev</span>
+                            </button>
+                            <span class="text-[10px] text-amber-300 font-semibold px-2 py-1 bg-amber-950/70 rounded border border-amber-800">
+                                <i class="fa-solid fa-compass mr-1"></i> Navigasi Bebas
+                            </span>
+                            <button type="button" onclick="studentNextSlide()" class="px-2.5 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold transition flex items-center space-x-1" title="Slide Selanjutnya (Mode Bebas)">
+                                <span>Next</span>
+                                <i class="fa-solid fa-chevron-right"></i>
+                            </button>
+                        </div>
                         <button type="button" id="raise-hand-btn" onclick="toggleMyRaiseHand()"
                             class="px-4 py-2 rounded-xl {{ ($attendance->is_hand_raised ?? false) ? 'bg-amber-600 ring-2 ring-white' : 'bg-amber-500 hover:bg-amber-600' }} text-white text-xs font-bold transition shadow-lg shadow-amber-500/25 flex items-center space-x-2">
                             <i class="fa-solid fa-hand"></i>
@@ -188,8 +404,21 @@
             </div>
         </div>
 
-        <!-- Right Sidebar Area: Peserta & Chat (Col 1) -->
-        <div class="bg-white rounded-3xl border border-slate-200 shadow-sm flex flex-col h-[600px] overflow-hidden">
+        <!-- Draggable Resizer Bar (Splitter Divider) -->
+        <div id="drag-splitter"
+             class="hidden lg:flex w-3.5 items-center justify-center cursor-col-resize group hover:bg-purple-100/40 active:bg-purple-200/60 rounded-xl transition-colors py-2 touch-none relative select-none shrink-0"
+             title="Geser ke kiri / kanan untuk menyesuaikan ukuran layar (Klik 2x untuk reset)">
+            <div class="w-1.5 h-16 bg-slate-300 group-hover:bg-purple-600 group-active:bg-purple-700 rounded-full transition-all flex items-center justify-center shadow-xs">
+                <i class="fa-solid fa-ellipsis-vertical text-[9px] text-slate-500 group-hover:text-white transition-colors"></i>
+            </div>
+            <!-- Tooltip visual hint -->
+            <div class="absolute -top-7 left-1/2 -translate-x-1/2 hidden group-hover:block bg-slate-800 text-white text-[10px] px-2 py-0.5 rounded-md shadow-lg pointer-events-none whitespace-nowrap z-30">
+                <i class="fa-solid fa-arrows-left-right mr-1 text-purple-400"></i> Geser Ukuran
+            </div>
+        </div>
+
+        <!-- Right Sidebar Area: Peserta & Chat -->
+        <div id="sidebar-panel" class="w-full lg:flex-1 bg-white rounded-3xl border border-slate-200 shadow-sm flex flex-col h-[600px] overflow-hidden mt-4 lg:mt-0 transition-none">
 
             <!-- Sidebar Tab Headers -->
             <div class="flex border-b border-slate-200 bg-slate-50">
@@ -262,6 +491,8 @@
 @endsection
 
 @push('scripts')
+<!-- Jitsi Meet External API SDK -->
+<script src="https://{{ config('services.jitsi.domain', 'meet.jit.si') }}/external_api.js"></script>
 <!-- PDF.js CDN library -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
@@ -273,12 +504,25 @@
     const IS_HOST = {{ $isHost ? 'true' : 'false' }};
     const CSRF_TOKEN = "{{ csrf_token() }}";
 
+    let currentVideoEngine = 'webrtc'; // 'webrtc' or 'jitsi'
+    let localStream = null;
+    let screenStream = null;
+
     let currentPdfUrl = "{{ $classroom->presentation_url ?? '' }}";
+    let presentationType = "{{ $classroom->presentation_type ?? 'pdf' }}";
+    let presentationData = @json($classroom->presentation_data ?? null);
     let currentSlide = {{ (int) ($classroom->current_slide ?? 1) }};
     let totalSlides = {{ (int) ($classroom->total_slides ?? 1) }};
     let isAllMicMuted = {{ ($classroom->is_all_mic_muted ?? false) ? 'true' : 'false' }};
     let isMyMicActive = true;
+    let isCamActive = true;
+    let stageMode = 'split';
+    let jitsiApi = null;
+    let isJitsiInitialized = false;
     let isMyHandRaised = {{ ($attendance->is_hand_raised ?? false) ? 'true' : 'false' }};
+    let isSyncLocked = true;
+    let hostCurrentSlide = currentSlide;
+    let isScreenSharing = false;
 
     let pdfDoc = null;
     let pageRendering = false;
@@ -294,18 +538,101 @@
         "Implementasi WebSocket & Sinkronisasi State",
     ];
 
-    // Initialize PDF or Fallback view
+    // Initialize Presentation & WebRTC Video Engine
     document.addEventListener('DOMContentLoaded', () => {
-        if (currentPdfUrl) {
-            loadPdfDocument(currentPdfUrl, currentSlide);
-        } else {
-            renderFallbackSlide(currentSlide);
-        }
+        renderPresentationView();
+
+        // Initialize Native WebRTC Video by default (works directly on localhost, zero login, no iframe issues)
+        initWebRTC();
 
         // Start Periodic Synchronization Loop
         setInterval(pollRoomState, 2500);
         pollRoomState();
     });
+
+    function updatePresentationBadge(type) {
+        const badge = document.getElementById('presentation-badge');
+        if (!badge) return;
+        badge.classList.remove('hidden');
+        if (type === 'pptx' || type === 'ppt') {
+            badge.className = 'text-[10px] bg-amber-900/60 text-amber-300 border border-amber-700 px-1.5 py-0.5 rounded';
+            badge.innerText = type.toUpperCase() + ' Aktif';
+        } else {
+            badge.className = 'text-[10px] bg-emerald-900/60 text-emerald-300 border border-emerald-700 px-1.5 py-0.5 rounded';
+            badge.innerText = 'PDF Aktif';
+        }
+    }
+
+    function renderPresentationView() {
+        const pdfContainer = document.getElementById('pdf-container');
+        const pptxContainer = document.getElementById('pptx-container');
+        const fallbackSlide = document.getElementById('fallback-slide');
+
+        if (!currentPdfUrl) {
+            if (pdfContainer) pdfContainer.classList.add('hidden');
+            if (pptxContainer) pptxContainer.classList.add('hidden');
+            if (fallbackSlide) fallbackSlide.classList.remove('hidden');
+            renderFallbackSlide(currentSlide);
+            return;
+        }
+
+        if (presentationType === 'pptx' || presentationType === 'ppt') {
+            if (pdfContainer) pdfContainer.classList.add('hidden');
+            if (fallbackSlide) fallbackSlide.classList.add('hidden');
+            if (pptxContainer) pptxContainer.classList.remove('hidden');
+            renderPptxSlide(currentSlide);
+        } else {
+            if (pptxContainer) pptxContainer.classList.add('hidden');
+            if (fallbackSlide) fallbackSlide.classList.add('hidden');
+            if (pdfContainer) pdfContainer.classList.remove('hidden');
+            loadPdfDocument(currentPdfUrl, currentSlide);
+        }
+    }
+
+    function renderPptxSlide(num) {
+        currentSlide = num;
+        document.getElementById('current-slide').innerText = num;
+        const total = totalSlides || (presentationData ? presentationData.length : 1);
+        document.getElementById('total-slides').innerText = total;
+
+        const badge = document.getElementById('pptx-slide-badge');
+        if (badge) badge.innerText = `SLIDE ${num} / ${total}`;
+
+        const slideItem = presentationData && presentationData[num - 1] ? presentationData[num - 1] : null;
+
+        const titleEl = document.getElementById('pptx-slide-title');
+        const bodyEl = document.getElementById('pptx-slide-body');
+        const imagesEl = document.getElementById('pptx-slide-images');
+
+        if (slideItem) {
+            if (titleEl) titleEl.innerText = slideItem.title || `Slide ${num}`;
+            if (bodyEl) {
+                if (slideItem.paragraphs && slideItem.paragraphs.length > 0) {
+                    bodyEl.innerHTML = slideItem.paragraphs.map(p => `
+                        <div class="flex items-start space-x-2.5 py-1">
+                            <span class="w-2 h-2 rounded-full bg-amber-400 mt-1.5 shrink-0"></span>
+                            <span class="text-slate-200 text-xs sm:text-sm leading-relaxed">${escapeHtml(p)}</span>
+                        </div>
+                    `).join('');
+                } else {
+                    bodyEl.innerHTML = '<p class="text-slate-400 text-xs italic">Slide visual tanpa teks.</p>';
+                }
+            }
+            if (imagesEl) {
+                if (slideItem.images && slideItem.images.length > 0) {
+                    imagesEl.innerHTML = slideItem.images.map(img => `
+                        <img src="${img}" alt="Slide Media" class="max-h-48 rounded-xl border border-slate-700 shadow-md object-contain bg-slate-950/60 p-1">
+                    `).join('');
+                } else {
+                    imagesEl.innerHTML = '';
+                }
+            }
+        } else {
+            if (titleEl) titleEl.innerText = `Slide ${num}`;
+            if (bodyEl) bodyEl.innerHTML = `<p class="text-slate-300 text-xs">Materi presentasi PowerPoint slide ${num}.</p>`;
+            if (imagesEl) imagesEl.innerHTML = '';
+        }
+    }
 
     // Load PDF via PDF.js
     function loadPdfDocument(url, initialPage = 1) {
@@ -390,7 +717,7 @@
     // Host: Next Slide
     function nextSlide() {
         if (!IS_HOST) return;
-        const max = pdfDoc ? pdfDoc.numPages : 4;
+        const max = presentationType === 'pdf' ? (pdfDoc ? pdfDoc.numPages : totalSlides) : totalSlides;
         if (currentSlide < max) {
             currentSlide++;
             syncSlideToServer(currentSlide, max);
@@ -402,13 +729,15 @@
         if (!IS_HOST) return;
         if (currentSlide > 1) {
             currentSlide--;
-            const max = pdfDoc ? pdfDoc.numPages : 4;
+            const max = presentationType === 'pdf' ? (pdfDoc ? pdfDoc.numPages : totalSlides) : totalSlides;
             syncSlideToServer(currentSlide, max);
         }
     }
 
     function syncSlideToServer(slideNum, totalNum) {
-        if (pdfDoc) {
+        if (presentationType === 'pptx' || presentationType === 'ppt') {
+            renderPptxSlide(slideNum);
+        } else if (pdfDoc) {
             queueRenderPage(slideNum);
         } else {
             renderFallbackSlide(slideNum);
@@ -428,12 +757,13 @@
         }).catch(err => console.error('Slide update error:', err));
     }
 
-    // Host: Upload PDF presentation
+    // Host: Upload presentation (PDF, PPT, PPTX)
     function uploadPresentationFile(input) {
         if (!input.files || input.files.length === 0) return;
         const file = input.files[0];
-        if (file.type !== 'application/pdf') {
-            alert('File yang diunggah harus bertipe PDF.');
+        const ext = file.name.split('.').pop().toLowerCase();
+        if (!['pdf', 'ppt', 'pptx'].includes(ext)) {
+            alert('File yang diunggah harus bertipe PDF atau PowerPoint (.ppt, .pptx).');
             return;
         }
 
@@ -452,21 +782,293 @@
         })
         .then(res => res.json())
         .then(data => {
+            showPdfLoader(false);
             if (data.success) {
                 currentPdfUrl = data.presentation_url;
+                presentationType = data.presentation_type || ext;
+                presentationData = data.presentation_data || null;
+                totalSlides = data.total_slides || 1;
                 document.getElementById('presentation-name').innerText = data.presentation_name;
-                loadPdfDocument(data.presentation_url, 1);
-                showToast('Materi presentasi PDF berhasil diunggah!');
+                updatePresentationBadge(presentationType);
+                renderPresentationView();
+                showToast(`Materi presentasi ${presentationType.toUpperCase()} berhasil diunggah!`);
             } else {
                 alert(data.message || 'Gagal mengunggah presentasi.');
-                showPdfLoader(false);
             }
         })
         .catch(err => {
             console.error('Upload error:', err);
             showPdfLoader(false);
-            alert('Terjadi kesalahan saat mengunggah file PDF.');
+            alert('Terjadi kesalahan saat mengunggah file materi.');
         });
+    }
+
+    // ===============================================================
+    // DUAL-ENGINE VIDEO CONFERENCING (WEBRTC 3-IN-1 & JITSI MEET API)
+    // ===============================================================
+
+    // Native WebRTC Initialization (Direct hardware camera & mic in browser, zero iframe block)
+    async function initWebRTC() {
+        try {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                console.warn('getUserMedia not supported in this browser environment.');
+                showCameraOffPlaceholder(true, 'Browser tidak mendukung akses kamera/mikrofon langsung.');
+                return;
+            }
+
+            localStream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 },
+                    facingMode: 'user'
+                },
+                audio: true
+            });
+
+            const videoEl = document.getElementById('local-camera-feed');
+            if (videoEl) {
+                videoEl.srcObject = localStream;
+                videoEl.play().catch(e => console.warn('Video play error:', e));
+            }
+
+            isCamActive = true;
+            isMyMicActive = true;
+            updateCamButtonUI(true);
+            updateMicButtonUI(true);
+            showCameraOffPlaceholder(false);
+
+        } catch (err) {
+            console.warn('WebRTC getUserMedia denied or camera busy:', err);
+            isCamActive = false;
+            updateCamButtonUI(false);
+            showCameraOffPlaceholder(true, 'Kamera dinonaktifkan atau izin belum diberikan di browser.');
+
+            // Attempt audio-only if webcam hardware is missing or denied
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                isMyMicActive = true;
+                updateMicButtonUI(true);
+            } catch (audioErr) {
+                console.warn('WebRTC audio getUserMedia denied:', audioErr);
+                isMyMicActive = false;
+                updateMicButtonUI(false);
+            }
+        }
+    }
+
+    function showCameraOffPlaceholder(show, desc = null) {
+        const placeholder = document.getElementById('camera-off-placeholder');
+        const videoEl = document.getElementById('local-camera-feed');
+        const descEl = document.getElementById('camera-off-desc');
+        if (!placeholder) return;
+
+        if (desc && descEl) descEl.innerText = desc;
+
+        if (show) {
+            placeholder.classList.remove('hidden');
+            if (videoEl) videoEl.classList.add('hidden');
+        } else {
+            placeholder.classList.add('hidden');
+            if (videoEl) videoEl.classList.remove('hidden');
+        }
+    }
+
+    // Switch between WebRTC Native and Jitsi Meet External Engine
+    function switchVideoEngine(engine) {
+        currentVideoEngine = engine;
+        const webrtcStage = document.getElementById('webrtc-stage');
+        const jitsiStage = document.getElementById('jitsi-stage');
+        const btnWebrtc = document.getElementById('btn-engine-webrtc');
+        const btnJitsi = document.getElementById('btn-engine-jitsi');
+        const statusText = document.getElementById('video-engine-status');
+
+        if (engine === 'webrtc') {
+            if (webrtcStage) webrtcStage.classList.remove('hidden');
+            if (jitsiStage) jitsiStage.classList.add('hidden');
+            if (btnWebrtc) {
+                btnWebrtc.className = 'px-2 py-0.5 rounded font-bold bg-purple-600 text-white transition shadow-xs';
+            }
+            if (btnJitsi) {
+                btnJitsi.className = 'px-2 py-0.5 rounded font-medium text-slate-400 hover:text-white transition';
+            }
+            if (statusText) statusText.innerText = 'Tatap Muka WebRTC (Langsung Aktif)';
+            if (!localStream) {
+                initWebRTC();
+            }
+        } else {
+            if (webrtcStage) webrtcStage.classList.add('hidden');
+            if (jitsiStage) jitsiStage.classList.remove('hidden');
+            if (btnJitsi) {
+                btnJitsi.className = 'px-2 py-0.5 rounded font-bold bg-purple-600 text-white transition shadow-xs';
+            }
+            if (btnWebrtc) {
+                btnWebrtc.className = 'px-2 py-0.5 rounded font-medium text-slate-400 hover:text-white transition';
+            }
+            if (statusText) statusText.innerText = 'API Jitsi Meet (meet.jit.si)';
+            ensureJitsiLoaded();
+        }
+    }
+
+    // Secondary Engine: Jitsi Meet External API SDK
+    function initJitsiMeet() {
+        const container = document.getElementById('jitsi-meet-container');
+        if (!container || isJitsiInitialized) return;
+
+        if (typeof JitsiMeetExternalAPI === 'undefined') {
+            if (!window._jitsiRetryCount) window._jitsiRetryCount = 0;
+            window._jitsiRetryCount++;
+            if (window._jitsiRetryCount < 8) {
+                setTimeout(initJitsiMeet, 800);
+                return;
+            }
+
+            const loader = document.getElementById('jitsi-loader');
+            if (loader) {
+                loader.innerHTML = `
+                    <div class="text-center p-6 text-white space-y-2">
+                        <div class="w-12 h-12 mx-auto rounded-full bg-slate-800 flex items-center justify-center text-amber-400 text-xl border border-amber-500/30">
+                            <i class="fa-solid fa-video-slash"></i>
+                        </div>
+                        <p class="text-xs font-bold">API Jitsi Meet Tidak Terjangkau</p>
+                        <p class="text-[11px] text-slate-400 max-w-xs mx-auto">Pastikan koneksi internet aktif untuk memuat server konferensi meet.jit.si.</p>
+                        <div class="pt-2">
+                            <button onclick="window._jitsiRetryCount=0; initJitsiMeet();" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold transition">
+                                <i class="fa-solid fa-arrows-rotate mr-1"></i> Coba Hubungkan Lagi
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+            return;
+        }
+
+        isJitsiInitialized = true;
+        const domain = "{{ config('services.jitsi.domain', 'meet.jit.si') }}";
+        const cleanRoom = 'unuja-3in1-' + "{{ Str::slug($classroom->room_code ?? $room_code) }}";
+
+        const options = {
+            roomName: cleanRoom,
+            width: '100%',
+            height: '100%',
+            parentNode: container,
+            userInfo: {
+                displayName: "{{ $user->name }} ({{ $isHost ? 'Dosen' : 'Mahasiswa' }})"
+            },
+            configOverwrite: {
+                startWithAudioMuted: false,
+                startWithVideoMuted: false,
+                prejoinPageEnabled: false,
+                prejoinConfig: {
+                    enabled: false
+                },
+                disableDeepLinking: true,
+                enableWelcomePage: false,
+                enableClosePage: false,
+                toolbarButtons: [
+                    'microphone', 'camera', 'desktop', 'fullscreen',
+                    'chat', 'raisehand', 'videoquality', 'tileview',
+                    'settings', 'mute-everyone'
+                ]
+            },
+            interfaceConfigOverwrite: {
+                SHOW_JITSI_WATERMARK: false,
+                SHOW_WATERMARK_FOR_GUESTS: false,
+                DEFAULT_BACKGROUND: '#020617'
+            }
+        };
+
+        try {
+            jitsiApi = new JitsiMeetExternalAPI(domain, options);
+
+            setTimeout(() => {
+                const loader = document.getElementById('jitsi-loader');
+                if (loader) loader.classList.add('hidden');
+            }, 2500);
+
+            jitsiApi.addEventListener('videoConferenceJoined', () => {
+                const loader = document.getElementById('jitsi-loader');
+                if (loader) loader.classList.add('hidden');
+                showToast('Terkoneksi ke Video Conference Jitsi Meet.');
+            });
+
+            jitsiApi.addEventListener('audioMuteStatusChanged', (e) => {
+                isMyMicActive = !e.muted;
+                updateMicButtonUI(!e.muted);
+            });
+
+            jitsiApi.addEventListener('videoMuteStatusChanged', (e) => {
+                isCamActive = !e.muted;
+                updateCamButtonUI(!e.muted);
+            });
+
+            jitsiApi.addEventListener('screenSharingStatusChanged', (e) => {
+                isScreenSharing = e.on;
+                updateShareScreenUI(e.on);
+            });
+
+        } catch (err) {
+            console.error('Error initializing Jitsi Meet:', err);
+            isJitsiInitialized = false;
+        }
+    }
+
+    function ensureJitsiLoaded() {
+        if (!isJitsiInitialized) {
+            initJitsiMeet();
+        }
+    }
+
+    // Switch between Presentation, Split 50:50, and Full Video (Tatap Muka)
+    function setStageMode(mode) {
+        stageMode = mode;
+        const presSection = document.getElementById('presentation-stage-section');
+        const jitsiSection = document.getElementById('jitsi-video-section');
+        const btnPres = document.getElementById('btn-mode-presentation');
+        const btnSplit = document.getElementById('btn-mode-split');
+        const btnVideo = document.getElementById('btn-mode-video');
+        const videoNotice = document.getElementById('video-mode-notice');
+
+        if (!presSection || !jitsiSection) return;
+
+        // Reset button active styles
+        [btnPres, btnSplit, btnVideo].forEach(btn => {
+            if (!btn) return;
+            btn.className = 'px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition flex items-center space-x-1';
+        });
+
+        if (mode === 'presentation') {
+            if (btnPres) btnPres.className = 'px-2.5 py-1 rounded-lg text-xs font-semibold bg-purple-600 text-white transition flex items-center space-x-1 shadow-xs';
+            if (videoNotice) videoNotice.classList.add('hidden');
+            presSection.className = 'w-full h-full flex flex-col items-center justify-center relative transition-all duration-300';
+            presSection.classList.remove('hidden');
+            // Keep Video section alive off-screen so WebRTC video/audio is not terminated
+            jitsiSection.className = 'absolute -left-[9999px] w-1 h-1 overflow-hidden opacity-0 pointer-events-none';
+        } else if (mode === 'split') {
+            if (btnSplit) btnSplit.className = 'px-2.5 py-1 rounded-lg text-xs font-semibold bg-purple-600 text-white transition flex items-center space-x-1 shadow-xs';
+            if (videoNotice) videoNotice.classList.add('hidden');
+            presSection.className = 'w-full lg:w-1/2 h-full flex flex-col items-center justify-center relative transition-all duration-300';
+            presSection.classList.remove('hidden');
+            jitsiSection.className = 'w-full lg:w-1/2 h-full flex flex-col relative rounded-2xl overflow-hidden border border-slate-700 bg-slate-950 transition-all duration-300';
+            if (currentVideoEngine === 'jitsi') {
+                ensureJitsiLoaded();
+            }
+        } else if (mode === 'video') {
+            if (btnVideo) btnVideo.className = 'px-2.5 py-1 rounded-lg text-xs font-semibold bg-purple-600 text-white transition flex items-center space-x-1 shadow-xs';
+            if (videoNotice) videoNotice.classList.remove('hidden');
+            presSection.classList.add('hidden');
+            jitsiSection.className = 'w-full h-full flex flex-col relative rounded-2xl overflow-hidden border border-slate-700 bg-slate-950 transition-all duration-300';
+            if (currentVideoEngine === 'jitsi') {
+                ensureJitsiLoaded();
+            }
+        }
+
+        if (mode === 'presentation' || mode === 'split') {
+            if (presentationType === 'pptx' || presentationType === 'ppt') {
+                renderPptxSlide(currentSlide);
+            } else if (pdfDoc) {
+                setTimeout(() => queueRenderPage(currentSlide), 200);
+            }
+        }
     }
 
     // Host: Toggle Mute All
@@ -485,6 +1087,13 @@
             if (data.success) {
                 isAllMicMuted = data.is_all_mic_muted;
                 updateMuteAllButton(data.is_all_mic_muted);
+                if (jitsiApi && currentVideoEngine === 'jitsi' && data.is_all_mic_muted) {
+                    try {
+                        jitsiApi.executeCommand('muteEveryone');
+                    } catch (e) {
+                        console.warn('Jitsi muteEveryone command:', e);
+                    }
+                }
                 showToast(data.message);
             }
         });
@@ -509,6 +1118,12 @@
 
     // Participant: Toggle Raise Hand
     function toggleMyRaiseHand() {
+        if (jitsiApi && currentVideoEngine === 'jitsi') {
+            try {
+                jitsiApi.executeCommand('toggleRaiseHand');
+            } catch (e) {}
+        }
+
         fetch(`/classroom/${ROOM_CODE}/raise-hand`, {
             method: 'POST',
             headers: {
@@ -535,13 +1150,48 @@
         });
     }
 
-    // Toggle Mic
+    // Central Toolbar: Toggle Microphone (WebRTC & Jitsi Integrated)
     function toggleMyMic() {
         if (isAllMicMuted && !IS_HOST) {
             showToast('Mikrofon dikunci oleh Host Dosen.', 'rose');
             return;
         }
 
+        isMyMicActive = !isMyMicActive;
+
+        // WebRTC track toggle
+        if (localStream) {
+            const audioTracks = localStream.getAudioTracks();
+            audioTracks.forEach(track => {
+                track.enabled = isMyMicActive;
+            });
+        }
+
+        // Update WebRTC avatar & stream mic icons
+        const streamMicIcon = document.getElementById('webrtc-stream-mic-icon');
+        const avatarMicBadge = document.getElementById('webrtc-avatar-mic-badge');
+        if (streamMicIcon) {
+            streamMicIcon.className = isMyMicActive ? 'fa-solid fa-microphone text-emerald-400' : 'fa-solid fa-microphone-slash text-rose-400';
+        }
+        if (avatarMicBadge) {
+            avatarMicBadge.className = isMyMicActive 
+                ? 'absolute bottom-0 right-0 w-7 h-7 rounded-full bg-emerald-500 border-2 border-slate-900 flex items-center justify-center text-white text-xs shadow'
+                : 'absolute bottom-0 right-0 w-7 h-7 rounded-full bg-rose-600 border-2 border-slate-900 flex items-center justify-center text-white text-xs shadow';
+            avatarMicBadge.innerHTML = `<i class="fa-solid fa-${isMyMicActive ? 'microphone' : 'microphone-slash'}"></i>`;
+        }
+
+        // Execute Audio Toggle command on Jitsi Meet if active
+        if (jitsiApi && currentVideoEngine === 'jitsi') {
+            try {
+                jitsiApi.executeCommand('toggleAudio');
+            } catch (e) {
+                console.warn('Jitsi audio toggle command error:', e);
+            }
+        }
+
+        updateMicButtonUI(isMyMicActive);
+
+        // Sync state to backend
         fetch(`/classroom/${ROOM_CODE}/mic`, {
             method: 'POST',
             headers: {
@@ -552,41 +1202,235 @@
         })
         .then(res => res.json())
         .then(data => {
-            if (data.success) {
-                isMyMicActive = !data.is_mic_muted;
-                const micIcon = document.getElementById('mic-icon');
-                const micText = document.getElementById('mic-text');
-                const micBtn = document.getElementById('mic-btn');
-
-                if (isMyMicActive) {
-                    micIcon.className = 'fa-solid fa-microphone';
-                    micText.innerText = 'Mic Aktif';
-                    micBtn.className = 'px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-700 hover:bg-slate-600 text-white transition flex items-center space-x-2';
-                } else {
-                    micIcon.className = 'fa-solid fa-microphone-slash text-rose-400';
-                    micText.innerText = 'Mic Dimatikan';
-                    micBtn.className = 'px-3.5 py-2 rounded-xl text-xs font-semibold bg-rose-900/60 border border-rose-600 text-white transition flex items-center space-x-2';
-                }
-            } else {
+            if (!data.success) {
                 showToast(data.message, 'rose');
             }
+        })
+        .catch(err => {
+            console.error('Mic toggle backend sync error:', err);
         });
     }
 
-    let isCamActive = true;
+    function updateMicButtonUI(active) {
+        isMyMicActive = active;
+        const micIcon = document.getElementById('mic-icon');
+        const micText = document.getElementById('mic-text');
+        const micBtn = document.getElementById('mic-btn');
+        if (!micBtn) return;
+
+        if (active) {
+            micBtn.className = 'px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-700 hover:bg-slate-600 text-white transition flex items-center space-x-2';
+            if (micIcon) micIcon.className = 'fa-solid fa-microphone text-emerald-400';
+            if (micText) micText.innerText = 'Mic Aktif';
+        } else {
+            micBtn.className = 'px-3.5 py-2 rounded-xl text-xs font-semibold bg-rose-900/60 border border-rose-600 text-white transition flex items-center space-x-2';
+            if (micIcon) micIcon.className = 'fa-solid fa-microphone-slash text-rose-400';
+            if (micText) micText.innerText = 'Mic Dimatikan';
+        }
+    }
+
+    // Central Toolbar: Toggle Camera (WebRTC & Jitsi Integrated)
     function toggleCam() {
         isCamActive = !isCamActive;
+
+        if (localStream) {
+            const videoTracks = localStream.getVideoTracks();
+            if (videoTracks.length > 0) {
+                videoTracks.forEach(track => {
+                    track.enabled = isCamActive;
+                });
+                showCameraOffPlaceholder(!isCamActive, isCamActive ? '' : 'Kamera Dinonaktifkan');
+            } else if (isCamActive) {
+                initWebRTC();
+            }
+        } else if (isCamActive) {
+            initWebRTC();
+        } else {
+            showCameraOffPlaceholder(true, 'Kamera Dinonaktifkan');
+        }
+
+        if (jitsiApi && currentVideoEngine === 'jitsi') {
+            try {
+                jitsiApi.executeCommand('toggleVideo');
+            } catch (e) {
+                console.warn('Jitsi video toggle command error:', e);
+            }
+        }
+
+        updateCamButtonUI(isCamActive);
+    }
+
+    function updateCamButtonUI(active) {
+        isCamActive = active;
         const camBtn = document.getElementById('cam-btn');
         const camIcon = document.getElementById('cam-icon');
         const camText = document.getElementById('cam-text');
-        if (isCamActive) {
+        if (!camBtn) return;
+
+        if (active) {
             camBtn.className = 'px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-700 hover:bg-slate-600 text-white transition flex items-center space-x-2';
-            camIcon.className = 'fa-solid fa-video';
-            camText.innerText = 'Kamera';
+            if (camIcon) camIcon.className = 'fa-solid fa-video text-emerald-400';
+            if (camText) camText.innerText = 'Kamera Aktif';
         } else {
             camBtn.className = 'px-3.5 py-2 rounded-xl text-xs font-semibold bg-rose-900/60 border border-rose-600 text-white transition flex items-center space-x-2';
-            camIcon.className = 'fa-solid fa-video-slash text-rose-400';
-            camText.innerText = 'Kamera Off';
+            if (camIcon) camIcon.className = 'fa-solid fa-video-slash text-rose-400';
+            if (camText) camText.innerText = 'Kamera Off';
+        }
+    }
+
+    // Central Toolbar: Toggle Share Screen (Native getDisplayMedia & Jitsi Integrated)
+    async function toggleShareScreen() {
+        if (currentVideoEngine === 'jitsi' && jitsiApi) {
+            try {
+                jitsiApi.executeCommand('toggleShareScreen');
+                return;
+            } catch (e) {
+                console.warn('Jitsi share screen command error, falling back to native WebRTC:', e);
+            }
+        }
+
+        const overlay = document.getElementById('screen-share-overlay');
+        const screenFeed = document.getElementById('screen-share-feed');
+
+        if (!isScreenSharing) {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+                showToast('Fitur Share Screen tidak didukung pada browser ini.', 'rose');
+                return;
+            }
+
+            try {
+                screenStream = await navigator.mediaDevices.getDisplayMedia({
+                    video: { cursor: "always" },
+                    audio: false
+                });
+
+                if (screenFeed) {
+                    screenFeed.srcObject = screenStream;
+                    screenFeed.play().catch(e => console.warn('Screen feed error:', e));
+                }
+                if (overlay) overlay.classList.remove('hidden');
+
+                updateShareScreenUI(true);
+                showToast('Layar Anda sedang dibagikan secara langsung.');
+
+                screenStream.getVideoTracks()[0].onended = () => {
+                    stopScreenShare();
+                };
+            } catch (err) {
+                console.warn('Share screen canceled or error:', err);
+                if (err.name !== 'NotAllowedError') {
+                    showToast('Gagal membagikan layar: ' + err.message, 'rose');
+                }
+            }
+        } else {
+            stopScreenShare();
+        }
+    }
+
+    function updateShareScreenUI(sharing) {
+        isScreenSharing = sharing;
+        const btn = document.getElementById('share-screen-btn');
+        const icon = document.getElementById('share-screen-icon');
+        const text = document.getElementById('share-screen-text');
+        if (!btn) return;
+
+        if (sharing) {
+            btn.className = 'px-3.5 py-2 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white transition flex items-center space-x-2 ring-2 ring-blue-400 shadow-md';
+            if (icon) icon.className = 'fa-solid fa-desktop text-white animate-pulse';
+            if (text) text.innerText = 'Sharing Aktif';
+        } else {
+            btn.className = 'px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-700 hover:bg-slate-600 text-white transition flex items-center space-x-2';
+            if (icon) icon.className = 'fa-solid fa-desktop';
+            if (text) text.innerText = 'Share Screen';
+        }
+    }
+
+    function stopScreenShare() {
+        if (screenStream) {
+            screenStream.getTracks().forEach(track => track.stop());
+            screenStream = null;
+        }
+        const overlay = document.getElementById('screen-share-overlay');
+        if (overlay) overlay.classList.add('hidden');
+
+        const screenFeed = document.getElementById('screen-share-feed');
+        if (screenFeed) screenFeed.srcObject = null;
+
+        updateShareScreenUI(false);
+        showToast('Berhenti membagikan layar.');
+    }
+
+    // Participant: Toggle Sync Lock
+    function toggleSyncLock() {
+        isSyncLocked = !isSyncLocked;
+        const btn = document.getElementById('sync-lock-btn');
+        const icon = document.getElementById('sync-lock-icon');
+        const text = document.getElementById('sync-lock-text');
+        const navGroup = document.getElementById('student-nav-group');
+        const resyncBtn = document.getElementById('resync-btn');
+
+        if (isSyncLocked) {
+            btn.className = 'px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-900/60 text-emerald-300 border border-emerald-600 hover:bg-emerald-800/60 transition flex items-center space-x-1.5 shadow-xs';
+            icon.className = 'fa-solid fa-lock text-emerald-400';
+            text.innerText = 'Sync Lock: Aktif';
+            if (navGroup) navGroup.classList.add('hidden');
+            if (resyncBtn) resyncBtn.classList.add('hidden');
+            resyncToHost();
+            showToast('Sync Lock Aktif: Slide terkunci mengikuti presentasi Dosen.');
+        } else {
+            btn.className = 'px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-900/60 text-amber-300 border border-amber-600 hover:bg-amber-800/60 transition flex items-center space-x-1.5 shadow-xs';
+            icon.className = 'fa-solid fa-lock-open text-amber-400';
+            text.innerText = 'Sync Lock: Bebas';
+            if (navGroup) navGroup.classList.remove('hidden');
+            if (resyncBtn && currentSlide !== hostCurrentSlide) resyncBtn.classList.remove('hidden');
+            showToast('Sync Lock Nonaktif: Anda bebas menjelajahi slide secara mandiri.', 'amber');
+        }
+    }
+
+    function resyncToHost() {
+        currentSlide = hostCurrentSlide;
+        if (presentationType === 'pptx' || presentationType === 'ppt') {
+            renderPptxSlide(currentSlide);
+        } else if (pdfDoc) {
+            queueRenderPage(currentSlide);
+        } else {
+            renderFallbackSlide(currentSlide);
+        }
+        const resyncBtn = document.getElementById('resync-btn');
+        if (resyncBtn) resyncBtn.classList.add('hidden');
+        showToast('Tampilan berhasil disinkronkan kembali ke slide Dosen.');
+    }
+
+    function studentNextSlide() {
+        if (isSyncLocked) return;
+        const max = presentationType === 'pdf' ? (pdfDoc ? pdfDoc.numPages : totalSlides) : totalSlides;
+        if (currentSlide < max) {
+            currentSlide++;
+            if (presentationType === 'pptx' || presentationType === 'ppt') {
+                renderPptxSlide(currentSlide);
+            } else if (pdfDoc) {
+                queueRenderPage(currentSlide);
+            } else {
+                renderFallbackSlide(currentSlide);
+            }
+            const resyncBtn = document.getElementById('resync-btn');
+            if (resyncBtn && currentSlide !== hostCurrentSlide) resyncBtn.classList.remove('hidden');
+        }
+    }
+
+    function studentPrevSlide() {
+        if (isSyncLocked) return;
+        if (currentSlide > 1) {
+            currentSlide--;
+            if (presentationType === 'pptx' || presentationType === 'ppt') {
+                renderPptxSlide(currentSlide);
+            } else if (pdfDoc) {
+                queueRenderPage(currentSlide);
+            } else {
+                renderFallbackSlide(currentSlide);
+            }
+            const resyncBtn = document.getElementById('resync-btn');
+            if (resyncBtn && currentSlide !== hostCurrentSlide) resyncBtn.classList.remove('hidden');
         }
     }
 
@@ -601,21 +1445,41 @@
         .then(data => {
             if (!data.success) return;
 
-            // 1. Sync PDF URL if changed
-            if (data.presentation_url && data.presentation_url !== currentPdfUrl) {
+            // 1. Sync Presentation if changed
+            if (data.presentation_url && (data.presentation_url !== currentPdfUrl || (data.presentation_type && data.presentation_type !== presentationType))) {
                 currentPdfUrl = data.presentation_url;
-                document.getElementById('presentation-name').innerText = data.presentation_name || 'Materi_Presentasi.pdf';
-                loadPdfDocument(currentPdfUrl, data.current_slide);
+                presentationType = data.presentation_type || 'pdf';
+                presentationData = data.presentation_data || null;
+                document.getElementById('presentation-name').innerText = data.presentation_name || 'Materi_Presentasi';
+                updatePresentationBadge(presentationType);
+                renderPresentationView();
             }
 
             // 2. Sync Slide page for Participant (Host controls it)
             if (!IS_HOST) {
-                if (data.current_slide !== currentSlide) {
-                    currentSlide = data.current_slide;
-                    if (pdfDoc) {
-                        queueRenderPage(currentSlide);
-                    } else {
-                        renderFallbackSlide(currentSlide);
+                hostCurrentSlide = data.current_slide;
+                const hostSlideNum = document.getElementById('host-slide-num');
+                if (hostSlideNum) hostSlideNum.innerText = hostCurrentSlide;
+
+                if (isSyncLocked) {
+                    if (data.current_slide !== currentSlide) {
+                        currentSlide = data.current_slide;
+                        if (presentationType === 'pptx' || presentationType === 'ppt') {
+                            renderPptxSlide(currentSlide);
+                        } else if (pdfDoc) {
+                            queueRenderPage(currentSlide);
+                        } else {
+                            renderFallbackSlide(currentSlide);
+                        }
+                    }
+                } else {
+                    const resyncBtn = document.getElementById('resync-btn');
+                    if (resyncBtn) {
+                        if (currentSlide !== hostCurrentSlide) {
+                            resyncBtn.classList.remove('hidden');
+                        } else {
+                            resyncBtn.classList.add('hidden');
+                        }
                     }
                 }
             }
@@ -627,8 +1491,27 @@
             isAllMicMuted = data.is_all_mic_muted;
             const micBanner = document.getElementById('mic-locked-banner');
             if (micBanner) {
-                if (isAllMicMuted && !IS_HOST) micBanner.classList.remove('hidden');
-                else micBanner.classList.add('hidden');
+                if (isAllMicMuted && !IS_HOST) {
+                    micBanner.classList.remove('hidden');
+                    if (isMyMicActive) {
+                        isMyMicActive = false;
+                        if (localStream) {
+                            localStream.getAudioTracks().forEach(track => { track.enabled = false; });
+                        }
+                        const streamMicIcon = document.getElementById('webrtc-stream-mic-icon');
+                        if (streamMicIcon) streamMicIcon.className = 'fa-solid fa-microphone-slash text-rose-400';
+                        updateMicButtonUI(false);
+                        if (jitsiApi && currentVideoEngine === 'jitsi') {
+                            try {
+                                jitsiApi.isAudioMuted().then(muted => {
+                                    if (!muted) jitsiApi.executeCommand('toggleAudio');
+                                });
+                            } catch (e) {}
+                        }
+                    }
+                } else {
+                    micBanner.classList.add('hidden');
+                }
             }
             if (IS_HOST) {
                 updateMuteAllButton(isAllMicMuted);
@@ -656,6 +1539,10 @@
     function renderParticipants(participants) {
         if (!participants) return;
         document.getElementById('participants-count').innerText = participants.length;
+        const webrtcBadge = document.getElementById('webrtc-participant-badge');
+        if (webrtcBadge) {
+            webrtcBadge.innerText = participants.length + ' Di Ruang Tatap Muka';
+        }
 
         const host = participants.find(p => p.role === 'host' || p.role === 'dosen');
         if (host) {
@@ -783,5 +1670,99 @@
             '"': '&quot;'
         }[tag] || tag));
     }
+
+    // Resizable Panel Logic (Drag Splitter)
+    (function initResizablePanels() {
+        const container = document.getElementById('classroom-split-container');
+        const stagePanel = document.getElementById('stage-panel');
+        const sidebarPanel = document.getElementById('sidebar-panel');
+        const splitter = document.getElementById('drag-splitter');
+
+        if (!container || !stagePanel || !sidebarPanel || !splitter) return;
+
+        const DEFAULT_WIDTH = 73; // 73%
+        const MIN_WIDTH = 45; // 45%
+        const MAX_WIDTH = 85; // 85%
+
+        // Restore saved preference if exists
+        const savedWidth = localStorage.getItem('3in1_panel_width');
+        if (savedWidth && window.innerWidth >= 1024) {
+            applyWidth(parseFloat(savedWidth));
+        }
+
+        let isDragging = false;
+
+        splitter.addEventListener('mousedown', startDragging);
+        splitter.addEventListener('touchstart', startDragging, { passive: false });
+
+        function startDragging(e) {
+            if (window.innerWidth < 1024) return;
+            isDragging = true;
+            document.body.style.userSelect = 'none';
+            document.body.style.cursor = 'col-resize';
+            splitter.classList.add('bg-purple-200/50');
+
+            window.addEventListener('mousemove', onDragging);
+            window.addEventListener('touchmove', onDragging, { passive: false });
+            window.addEventListener('mouseup', stopDragging);
+            window.addEventListener('touchend', stopDragging);
+        }
+
+        function onDragging(e) {
+            if (!isDragging) return;
+            e.preventDefault();
+
+            const containerRect = container.getBoundingClientRect();
+            const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+            if (!clientX) return;
+
+            const pointerPos = clientX - containerRect.left;
+            let percent = (pointerPos / containerRect.width) * 100;
+            percent = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, percent));
+
+            applyWidth(percent);
+        }
+
+        function stopDragging() {
+            if (!isDragging) return;
+            isDragging = false;
+            document.body.style.userSelect = '';
+            document.body.style.cursor = '';
+            splitter.classList.remove('bg-purple-200/50');
+
+            window.removeEventListener('mousemove', onDragging);
+            window.removeEventListener('touchmove', onDragging);
+            window.removeEventListener('mouseup', stopDragging);
+            window.removeEventListener('touchend', stopDragging);
+
+            const currentWidthPercent = parseFloat(stagePanel.style.width);
+            if (currentWidthPercent) {
+                localStorage.setItem('3in1_panel_width', currentWidthPercent);
+            }
+
+            // Re-render PDF canvas if needed to match new container dimensions
+            if (typeof pdfDoc !== 'undefined' && pdfDoc) {
+                queueRenderPage(currentSlide);
+            }
+        }
+
+        function applyWidth(percent) {
+            stagePanel.style.width = percent + '%';
+            sidebarPanel.style.width = (100 - percent) + '%';
+            sidebarPanel.style.flex = 'none';
+        }
+
+        // Double click splitter to reset default
+        splitter.addEventListener('dblclick', () => {
+            applyWidth(DEFAULT_WIDTH);
+            localStorage.removeItem('3in1_panel_width');
+            if (typeof pdfDoc !== 'undefined' && pdfDoc) {
+                queueRenderPage(currentSlide);
+            }
+            if (typeof showToast === 'function') {
+                showToast('Ukuran panel di-reset ke default (73% / 27%).');
+            }
+        });
+    })();
 </script>
 @endpush
