@@ -21,6 +21,125 @@
         </div>
     </div>
 
+    <!-- Section: Daftar Kelas Perkuliahan Anda (Ploting Kelas & 1-Click Starter) -->
+    <div class="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-sm">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-6 border-b border-slate-100 gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="w-12 h-12 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-xl shadow-inner">
+                    <i class="fa-solid fa-graduation-cap"></i>
+                </div>
+                <div>
+                    <h2 class="text-xl font-extrabold text-slate-900 tracking-tight">Daftar Kelas Perkuliahan Anda</h2>
+                    <p class="text-xs text-slate-500 mt-0.5">Kelas perkuliahan resmi hasil ploting Admin. Mulai sesi interaktif 3-in-1 hanya dengan 1 klik.</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-2">
+                <span class="px-3 py-1.5 rounded-xl bg-purple-50 text-purple-700 text-xs font-bold border border-purple-200/60 inline-flex items-center">
+                    <i class="fa-solid fa-chalkboard mr-1.5"></i> {{ isset($teachingClasses) ? $teachingClasses->count() : 0 }} Kelas Ditugaskan
+                </span>
+            </div>
+        </div>
+
+        @if(!isset($teachingClasses) || $teachingClasses->isEmpty())
+            <div class="text-center py-12 px-4 rounded-2xl border-2 border-dashed border-slate-200 mt-6 bg-slate-50/50">
+                <div class="w-14 h-14 mx-auto mb-3 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center text-2xl">
+                    <i class="fa-solid fa-folder-open"></i>
+                </div>
+                <h3 class="text-sm font-bold text-slate-800">Belum Ada Kelas yang Ditugaskan</h3>
+                <p class="text-xs text-slate-500 max-w-md mx-auto mt-1">
+                    Admin Akademik belum mem-ploting kelas perkuliahan ke akun Anda. Anda tetap dapat membuka sesi ad-hoc menggunakan formulir manual di bawah.
+                </p>
+            </div>
+        @else
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 mt-6">
+                @foreach($teachingClasses as $class)
+                    @php
+                        $activeSession = $class->activeSession();
+                        $studentCount = $class->students ? $class->students->count() : 0;
+                    @endphp
+                    <div class="bg-gradient-to-b from-white to-slate-50/50 rounded-2xl border {{ $activeSession ? 'border-red-300 ring-2 ring-red-500/20 shadow-md' : 'border-slate-200 hover:border-purple-300 hover:shadow-md' }} p-5 transition flex flex-col justify-between">
+                        <div>
+                            <!-- Header Kartu: Badge Status & SKS -->
+                            <div class="flex items-start justify-between gap-2 mb-3">
+                                <div class="flex flex-wrap items-center gap-1.5">
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-mono font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                                        {{ $class->kode_mk }}
+                                    </span>
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                                        {{ $class->sks }} SKS
+                                    </span>
+                                </div>
+
+                                @if($activeSession)
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-red-100 text-red-700 border border-red-200 shadow-xs animate-pulse">
+                                        🔴 SESI VIRTUAL SEDANG BERLANGSUNG
+                                    </span>
+                                @else
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-600">
+                                        Semester {{ $class->semester }}
+                                    </span>
+                                @endif
+                            </div>
+
+                            <!-- Nama MK & Kelas -->
+                            <h3 class="text-base font-bold text-slate-900 leading-snug">
+                                {{ $class->nama_mk }}
+                            </h3>
+                            <div class="flex items-center space-x-2 mt-1">
+                                <span class="text-xs font-semibold px-2 py-0.5 rounded bg-purple-100 text-purple-800">
+                                    {{ $class->nama_kelas }}
+                                </span>
+                                <span class="text-xs text-slate-500">
+                                    {{ $class->prodi }}
+                                </span>
+                            </div>
+
+                            <!-- Detail Jadwal & Peserta -->
+                            <div class="mt-4 pt-3 border-t border-slate-100 space-y-1.5 text-xs text-slate-600">
+                                <div class="flex items-center space-x-2">
+                                    <i class="fa-regular fa-clock w-4 text-purple-600"></i>
+                                    <span>{{ $class->hari }}, {{ $class->jam_mulai }} - {{ $class->jam_selesai }}</span>
+                                </div>
+                                @if($class->ruang)
+                                    <div class="flex items-center space-x-2">
+                                        <i class="fa-solid fa-location-dot w-4 text-slate-400"></i>
+                                        <span>{{ $class->ruang }}</span>
+                                    </div>
+                                @endif
+                                <div class="flex items-center space-x-2">
+                                    <i class="fa-solid fa-user-graduate w-4 text-emerald-600"></i>
+                                    <span class="font-semibold text-slate-700">{{ $studentCount }} Mahasiswa Terdaftar</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Action Button: 1-Click Starter / Rejoin -->
+                        <div class="mt-5 pt-4 border-t border-slate-100">
+                            @if($activeSession)
+                                <a href="{{ route('classroom.room', $activeSession->room_code) }}"
+                                    class="w-full py-2.5 px-4 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white rounded-xl text-xs font-bold shadow-md shadow-red-600/20 transition flex items-center justify-center space-x-2">
+                                    <i class="fa-solid fa-arrow-right-to-bracket text-sm"></i>
+                                    <span>Masuk Kembali ke Ruang Kelas</span>
+                                </a>
+                            @else
+                                <form action="{{ route('dosen.classroom.create') }}" method="POST">
+                                    @csrf
+                                    <input type="hidden" name="course_class_id" value="{{ $class->id }}">
+                                    <input type="hidden" name="title" value="{{ $class->nama_mk }} ({{ $class->nama_kelas }})">
+                                    <button type="submit"
+                                        class="w-full py-2.5 px-4 bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white rounded-xl text-xs font-bold shadow-md shadow-purple-600/20 transition flex items-center justify-center space-x-2">
+                                        <i class="fa-solid fa-video text-sm"></i>
+                                        <span>Mulai Sesi Virtual 3-in-1</span>
+                                    </button>
+                                </form>
+                            @endif
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        @endif
+    </div>
+
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
         <!-- Form: Buat Sesi Kelas Virtual Baru -->
@@ -93,6 +212,11 @@
                                 <span class="text-xs font-mono font-bold px-2 py-0.5 bg-slate-200 rounded text-slate-800 tracking-wider">
                                     {{ $code }}
                                 </span>
+                                @if(is_object($room) && $room->courseClass)
+                                    <span class="text-[11px] font-bold px-2 py-0.5 bg-purple-100 text-purple-700 rounded-md border border-purple-200">
+                                        {{ $room->courseClass->nama_kelas }}
+                                    </span>
+                                @endif
                             </div>
                             <h3 class="text-sm font-bold text-slate-900">{{ $title }}</h3>
                             <p class="text-xs text-slate-500">

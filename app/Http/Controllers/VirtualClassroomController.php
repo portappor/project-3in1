@@ -4,14 +4,17 @@ namespace App\Http\Controllers;
 
 use App\Models\ClassroomAttendance;
 use App\Models\ClassroomChat;
+use App\Models\CourseClass;
 use App\Models\User;
 use App\Models\VirtualClassroom;
 use App\Services\CampusApiService;
+use App\Services\PresentationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class VirtualClassroomController extends Controller
@@ -23,7 +26,13 @@ class VirtualClassroomController extends Controller
     {
         $user = Auth::user();
 
+        $teachingClasses = $user->teachingClasses()
+            ->with(['students', 'virtualClassrooms'])
+            ->latest()
+            ->get();
+
         $recentRooms = VirtualClassroom::where('dosen_id', $user->id)
+            ->with(['courseClass'])
             ->withCount('attendances')
             ->latest()
             ->take(10)
@@ -31,12 +40,12 @@ class VirtualClassroomController extends Controller
 
         if ($recentRooms->isEmpty()) {
             do {
-                $sampleCode = '3IN1-' . Str::upper(Str::random(5));
+                $sampleCode = '3IN1-'.Str::upper(Str::random(5));
             } while (VirtualClassroom::where('room_code', $sampleCode)->exists());
 
             $sampleRoom = VirtualClassroom::create([
                 'room_code' => $sampleCode,
-                'title' => 'Sesi Pembelajaran Interaktif ' . ($user->prodi ?? 'Teknik'),
+                'title' => 'Sesi Pembelajaran Interaktif '.($user->prodi ?? 'Teknik'),
                 'dosen_id' => $user->id,
                 'status' => 'live',
                 'current_slide' => 1,
@@ -107,6 +116,7 @@ class VirtualClassroomController extends Controller
                         return false;
                     }
                     $jProdi = strtolower($j['prodi'] ?? '');
+
                     return str_contains($jProdi, $userProdi) || str_contains($userProdi, $jProdi);
                 }));
 
@@ -120,7 +130,7 @@ class VirtualClassroomController extends Controller
             ];
         }
 
-        return view('dosen.dashboard', compact('user', 'recentRooms', 'matakuliah', 'jadwalMengajar'));
+        return view('dosen.dashboard', compact('user', 'recentRooms', 'matakuliah', 'jadwalMengajar', 'teachingClasses'));
     }
 
     /**
@@ -137,8 +147,11 @@ class VirtualClassroomController extends Controller
             // Filter jadwal sesuai program studi mahasiswa
             $userProdi = strtolower($user->prodi ?? '');
             $jadwal = array_values(array_filter($allJadwal, function ($j) use ($userProdi) {
-                if (empty($userProdi)) return true;
+                if (empty($userProdi)) {
+                    return true;
+                }
                 $prodiJadwal = strtolower($j['prodi'] ?? '');
+
                 return str_contains($prodiJadwal, $userProdi) || str_contains($userProdi, $prodiJadwal);
             }));
 
@@ -161,17 +174,39 @@ class VirtualClassroomController extends Controller
     public function createRoom(Request $request): RedirectResponse
     {
         $request->validate([
-            'title' => 'required|string|max:150',
+            'title' => 'required_without:course_class_id|nullable|string|max:150',
+            'course_class_id' => 'nullable|exists:course_classes,id',
         ]);
 
+        $courseClassId = $request->input('course_class_id');
+        $courseClass = $courseClassId ? CourseClass::find($courseClassId) : null;
+
+        // Jika kelas ini sudah memiliki sesi live yang aktif, alihkan langsung tanpa menduplikasi ruang
+        if ($courseClass) {
+            $existingLiveRoom = $courseClass->activeSession();
+            if ($existingLiveRoom) {
+                return redirect()->route('classroom.room', ['room_code' => $existingLiveRoom->room_code])
+                    ->with('info', "Sesi kelas virtual untuk '{$courseClass->nama_mk}' sedang berlangsung. Anda dialihkan ke ruang kelas.");
+            }
+        }
+
+        $title = $request->input('title');
+        if (empty($title) && $courseClass) {
+            $title = "{$courseClass->nama_mk} ({$courseClass->nama_kelas})";
+        }
+        if (empty($title)) {
+            $title = 'Sesi Ruang Kelas Virtual';
+        }
+
         do {
-            $roomCode = '3IN1-' . Str::upper(Str::random(5));
+            $roomCode = '3IN1-'.Str::upper(Str::random(5));
         } while (VirtualClassroom::where('room_code', $roomCode)->exists());
 
         $classroom = VirtualClassroom::create([
             'room_code' => $roomCode,
-            'title' => $request->input('title'),
+            'title' => $title,
             'dosen_id' => Auth::id(),
+            'course_class_id' => $courseClassId,
             'status' => 'live',
             'current_slide' => 1,
             'total_slides' => 1,
@@ -223,7 +258,7 @@ class VirtualClassroomController extends Controller
 
             $classroom = VirtualClassroom::create([
                 'room_code' => $code,
-                'title' => 'Ruang Kelas Virtual ' . $code,
+                'title' => 'Ruang Kelas Virtual '.$code,
                 'dosen_id' => $defaultDosen->id,
                 'status' => 'live',
                 'current_slide' => 1,
@@ -252,7 +287,7 @@ class VirtualClassroomController extends Controller
             ClassroomChat::create([
                 'virtual_classroom_id' => $classroom->id,
                 'user_id' => $classroom->dosen_id,
-                'message' => 'Selamat datang di ruang kelas virtual ' . $classroom->title . '. Silakan aktifkan mikrofon atau gunakan fitur Raise Hand jika ingin bertanya.',
+                'message' => 'Selamat datang di ruang kelas virtual '.$classroom->title.'. Silakan aktifkan mikrofon atau gunakan fitur Raise Hand jika ingin bertanya.',
             ]);
         }
 
@@ -262,38 +297,67 @@ class VirtualClassroomController extends Controller
     }
 
     /**
-     * Unggah dokumen materi presentasi PDF (khusus Dosen/Host).
+     * Unggah dokumen materi presentasi (PDF, PPTX, atau PPT) khusus Dosen/Host.
      */
-    public function uploadPresentation(Request $request, string $room_code): JsonResponse|RedirectResponse
+    public function uploadPresentation(Request $request, string $room_code, PresentationService $presentationService): JsonResponse|RedirectResponse
     {
         $request->validate([
-            'presentation' => 'required|file|mimes:pdf|max:20480',
+            'presentation' => 'required|file|max:51200',
         ]);
 
-        $classroom = VirtualClassroom::where('room_code', Str::upper($room_code))->firstOrFail();
-
         $file = $request->file('presentation');
-        $storedPath = $file->store('presentations', 'public');
+        $ext = Str::lower($file->getClientOriginalExtension());
+        if (! in_array($ext, ['pdf', 'ppt', 'pptx'], true)) {
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Format file tidak didukung. Harap unggah file PDF atau PowerPoint (.ppt, .pptx).',
+                ], 422);
+            }
+
+            return back()->with('error', 'Format file tidak didukung. Harap unggah file PDF atau PowerPoint (.ppt, .pptx).');
+        }
+
+        $classroom = VirtualClassroom::where('room_code', Str::upper($room_code))->firstOrFail();
+        $processed = $presentationService->processUpload($file, $classroom);
+
+        $totalSlides = $request->filled('total_slides')
+            ? max(1, (int) $request->input('total_slides'))
+            : max(1, $processed['total_slides']);
 
         $classroom->update([
-            'presentation_path' => $storedPath,
-            'presentation_name' => $file->getClientOriginalName(),
+            'presentation_path' => $processed['path'],
+            'presentation_name' => $processed['name'],
+            'presentation_type' => $processed['type'],
+            'presentation_data' => $processed['data'],
             'current_slide' => 1,
-            'total_slides' => max(1, (int) $request->input('total_slides', 1)),
+            'total_slides' => $totalSlides,
         ]);
 
         if ($request->wantsJson()) {
             return response()->json([
                 'success' => true,
-                'message' => 'Dokumen presentasi PDF berhasil diunggah.',
+                'message' => 'Materi presentasi ('.Str::upper($processed['type']).') berhasil diunggah.',
                 'presentation_url' => $classroom->presentation_url,
                 'presentation_name' => $classroom->presentation_name,
+                'presentation_type' => $classroom->presentation_type,
+                'presentation_data' => $classroom->presentation_data,
                 'current_slide' => $classroom->current_slide,
                 'total_slides' => $classroom->total_slides,
             ]);
         }
 
-        return back()->with('success', 'Materi presentasi PDF berhasil diunggah.');
+        return back()->with('success', 'Materi presentasi berhasil diunggah.');
+    }
+
+    /**
+     * Sajikan file dokumen presentasi secara langsung (stream/download).
+     */
+    public function getPresentationFile(string $room_code, PresentationService $presentationService): BinaryFileResponse
+    {
+        $classroom = VirtualClassroom::where('room_code', Str::upper($room_code))->firstOrFail();
+
+        return $presentationService->streamFile($classroom);
     }
 
     /**
@@ -485,6 +549,8 @@ class VirtualClassroomController extends Controller
             'total_slides' => $classroom->total_slides,
             'presentation_url' => $classroom->presentation_url,
             'presentation_name' => $classroom->presentation_name,
+            'presentation_type' => $classroom->presentation_type ?? 'pdf',
+            'presentation_data' => $classroom->presentation_data,
             'is_all_mic_muted' => (bool) $classroom->is_all_mic_muted,
             'has_hand_raised' => $hasHandRaised,
             'participants' => $participants,
