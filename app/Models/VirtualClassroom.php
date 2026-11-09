@@ -17,9 +17,12 @@ class VirtualClassroom extends Model
         'room_code',
         'title',
         'dosen_id',
+        'course_class_id',
         'status',
         'presentation_path',
         'presentation_name',
+        'presentation_type',
+        'presentation_data',
         'current_slide',
         'total_slides',
         'is_all_mic_muted',
@@ -31,12 +34,18 @@ class VirtualClassroom extends Model
             'current_slide' => 'integer',
             'total_slides' => 'integer',
             'is_all_mic_muted' => 'boolean',
+            'presentation_data' => 'array',
         ];
     }
 
     public function dosen(): BelongsTo
     {
         return $this->belongsTo(User::class, 'dosen_id');
+    }
+
+    public function courseClass(): BelongsTo
+    {
+        return $this->belongsTo(CourseClass::class, 'course_class_id');
     }
 
     public function attendances(): HasMany
@@ -62,7 +71,10 @@ class VirtualClassroom extends Model
             return null;
         }
 
-        return Storage::disk('public')->url($this->presentation_path);
+        try {
+            return route('classroom.presentation.file', $this->room_code);
+        } catch (\Throwable) {
+            return Storage::disk('public')->url($this->presentation_path);
+        }
     }
 }
-

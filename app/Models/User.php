@@ -3,9 +3,10 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class User extends Authenticatable
 {
@@ -71,6 +72,17 @@ class User extends Authenticatable
     public function hostedClassrooms(): HasMany
     {
         return $this->hasMany(VirtualClassroom::class, 'dosen_id');
+    }
+
+    public function teachingClasses(): HasMany
+    {
+        return $this->hasMany(CourseClass::class, 'dosen_id');
+    }
+
+    public function enrolledClasses(): BelongsToMany
+    {
+        return $this->belongsToMany(CourseClass::class, 'course_class_students', 'student_id', 'course_class_id')
+            ->withTimestamps();
     }
 
     public function attendances(): HasMany
