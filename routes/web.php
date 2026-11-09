@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\AdminCourseClassController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CampusDataController;
 use App\Http\Controllers\VirtualClassroomController;
@@ -35,6 +36,11 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/users/{user}/update-role', [AdminController::class, 'updateUserRole'])->name('users.update_role');
         Route::get('/campus-data', [CampusDataController::class, 'index'])->name('campus_data');
         Route::post('/campus-data/sync', [CampusDataController::class, 'syncNow'])->name('campus_data.sync');
+
+        // Manajemen Kelas & Ploting Mahasiswa
+        Route::resource('classes', AdminCourseClassController::class)->except(['show']);
+        Route::get('/classes/{class}/plotting', [AdminCourseClassController::class, 'plotting'])->name('classes.plotting');
+        Route::post('/classes/{class}/plotting', [AdminCourseClassController::class, 'savePlotting'])->name('classes.plotting.save');
     });
 
     // AREA DOSEN (HOST)
@@ -57,6 +63,7 @@ Route::middleware(['auth'])->group(function () {
     // RUANG KELAS VIRTUAL & INTERAKSI SINKRON (Host & Participant)
     Route::get('/room/{room_code}', [VirtualClassroomController::class, 'showRoom'])->name('classroom.room');
     Route::get('/classroom/{room_code}/state', [VirtualClassroomController::class, 'getRoomState'])->name('classroom.state');
+    Route::get('/classroom/{room_code}/presentation-file', [VirtualClassroomController::class, 'getPresentationFile'])->name('classroom.presentation.file');
     Route::post('/classroom/{room_code}/chat', [VirtualClassroomController::class, 'sendChat'])->name('classroom.chat');
     Route::post('/classroom/{room_code}/raise-hand', [VirtualClassroomController::class, 'toggleRaiseHand'])->name('classroom.raise_hand');
     Route::post('/classroom/{room_code}/mic', [VirtualClassroomController::class, 'toggleMic'])->name('classroom.mic');

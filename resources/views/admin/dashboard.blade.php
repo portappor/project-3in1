@@ -86,6 +86,33 @@
         </div>
     </div>
 
+    <!-- Quick Access: Ploting Kelas Perkuliahan -->
+    <div class="bg-gradient-to-r from-blue-900 to-indigo-900 rounded-2xl p-6 text-white shadow-md flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+            <div class="flex items-center space-x-2">
+                <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-white/20 text-blue-200">
+                    Akademik & Perkuliahan
+                </span>
+                <h3 class="text-lg font-bold">Manajemen Kelas & Ploting Mahasiswa</h3>
+            </div>
+            <p class="text-xs text-blue-200 mt-1 max-w-xl leading-relaxed">
+                Buat kelas kuliah terhubung dengan 795 matakuliah API Kampus, tetapkan Dosen Pengampu, dan ploting mahasiswa peserta kelas untuk ruang kelas virtual 3-in-1.
+            </p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2.5">
+            <a href="{{ route('admin.classes.index') }}"
+                class="px-4 py-2.5 rounded-xl text-xs font-bold bg-white text-blue-950 hover:bg-blue-50 transition shadow-sm flex items-center space-x-2">
+                <i class="fa-solid fa-graduation-cap text-blue-700"></i>
+                <span>Buka Manajemen Kelas</span>
+            </a>
+            <a href="{{ route('admin.classes.create') }}"
+                class="px-4 py-2.5 rounded-xl text-xs font-bold bg-blue-600/80 hover:bg-blue-600 text-white border border-white/20 transition flex items-center space-x-1.5">
+                <i class="fa-solid fa-plus"></i>
+                <span>Tambah Kelas Baru</span>
+            </a>
+        </div>
+    </div>
+
     <!-- Admin Master Actions Bar -->
     <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>

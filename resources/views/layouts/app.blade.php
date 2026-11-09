@@ -49,6 +49,10 @@
                                     class="px-3 py-1.5 rounded-lg {{ request()->routeIs('admin.campus_data') || request()->routeIs('campus.data') ? 'bg-blue-50 text-blue-700 font-bold' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50' }}">
                                     <i class="fa-solid fa-database mr-1.5 text-blue-600"></i> Data Kampus (API)
                                 </a>
+                                <a href="{{ route('admin.classes.index') }}"
+                                    class="px-3 py-1.5 rounded-lg {{ request()->routeIs('admin.classes.*') ? 'bg-blue-50 text-blue-700 font-bold' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50' }}">
+                                    <i class="fa-solid fa-graduation-cap mr-1.5 text-blue-600"></i> Ploting Kelas
+                                </a>
                             @else
                                 <a href="{{ auth()->user()->isDosen() ? route('dosen.dashboard') : route('mahasiswa.dashboard') }}"
                                     class="px-3 py-1.5 rounded-lg {{ request()->routeIs('dosen.*') || request()->routeIs('mahasiswa.*') ? 'bg-blue-50 text-blue-700 font-bold' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50' }}">
