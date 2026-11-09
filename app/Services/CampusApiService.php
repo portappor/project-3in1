@@ -67,7 +67,10 @@ class CampusApiService
                 'app_id' => $this->appId,
             ]);
 
-            $response = Http::withHeaders($headers)
+            $timeout = (int) config('services.campus_api.timeout', 60);
+
+            $response = Http::timeout($timeout)
+                ->withHeaders($headers)
                 ->asJson()
                 ->acceptJson()
                 ->post($authorizeUrl, $payload);
@@ -165,13 +168,14 @@ class CampusApiService
         ], $params);
 
         $url = "{$this->baseUrl}/data/{$token}";
-        $response = Http::withHeaders($headers)->post($url, $payload);
+        $timeout = (int) config('services.campus_api.timeout', 60);
+        $response = Http::timeout($timeout)->withHeaders($headers)->post($url, $payload);
 
         // Jika status 401 (token tidak valid / kadaluarsa), refresh token dan ulangi sekali
         if ($response->status() === 401) {
             $token = $this->getAccessToken(forceRefresh: true);
             $url = "{$this->baseUrl}/data/{$token}";
-            $response = Http::withHeaders($headers)->post($url, $payload);
+            $response = Http::timeout($timeout)->withHeaders($headers)->post($url, $payload);
         }
 
         if ($response->failed()) {
@@ -277,75 +281,81 @@ class CampusApiService
     {
         $cacheKey = 'campus_api_all_matakuliah_'.md5(json_encode($options));
 
-        return Cache::remember($cacheKey, now()->addHours(24), function () use ($options): array {
-            $prodiFilter = ! empty($options['prodi']) ? trim((string) $options['prodi']) : null;
-            $searchFilter = ! empty($options['search']) ? strtolower(trim((string) $options['search'])) : null;
+        if (Cache::has($cacheKey)) {
+            return (array) Cache::get($cacheKey);
+        }
 
-            $allRecords = [];
-            $targetProdis = self::TEKNIK_PRODI_SMS;
+        $prodiFilter = ! empty($options['prodi']) ? trim((string) $options['prodi']) : null;
+        $searchFilter = ! empty($options['search']) ? strtolower(trim((string) $options['search'])) : null;
 
-            if ($prodiFilter) {
-                $targetProdis = array_filter(self::TEKNIK_PRODI_SMS, function ($key) use ($prodiFilter) {
-                    return str_contains(strtolower($key), strtolower($prodiFilter));
-                }, ARRAY_FILTER_USE_KEY);
+        $allRecords = [];
+        $targetProdis = self::TEKNIK_PRODI_SMS;
 
-                if (empty($targetProdis)) {
-                    $targetProdis = self::TEKNIK_PRODI_SMS;
-                }
+        if ($prodiFilter) {
+            $targetProdis = array_filter(self::TEKNIK_PRODI_SMS, function ($key) use ($prodiFilter) {
+                return str_contains(strtolower($key), strtolower($prodiFilter));
+            }, ARRAY_FILTER_USE_KEY);
+
+            if (empty($targetProdis)) {
+                $targetProdis = self::TEKNIK_PRODI_SMS;
             }
+        }
 
+        foreach ($targetProdis as $prodiName => $idSms) {
             try {
-                foreach ($targetProdis as $prodiName => $idSms) {
-                    $params = [
-                        'id_sms' => $idSms,
-                        'pagination' => 'off',
-                    ];
-                    $res = $this->getData('matakuliah', $params);
-                    $records = $res['data']['data'] ?? $res['data'] ?? [];
+                $params = [
+                    'id_sms' => $idSms,
+                    'pagination' => 'off',
+                ];
+                $res = $this->getData('matakuliah', $params);
+                $records = $res['data']['data'] ?? $res['data'] ?? [];
 
-                    foreach ($records as $r) {
-                        $allRecords[] = [
-                            'kode' => $r['kode_matkul'] ?? $r['kode'] ?? '',
-                            'nama' => $r['nama_matkul'] ?? $r['nama'] ?? '',
-                            'sks' => (int) ($r['sks_mk'] ?? $r['sks'] ?? 3),
-                            'prodi' => ! empty($r['prodi']) ? $r['prodi'] : $prodiName,
-                            'semester' => (int) ($r['semester'] ?? 1),
-                            'kurikulum' => $r['nama_kurikulum'] ?? '',
-                            'id_matkul' => $r['id_matkul'] ?? '',
-                        ];
-                    }
-                }
-
-                if (! empty($allRecords)) {
-                    // Filter berdasarkan prodi jika ada filter prodi
-                    if ($prodiFilter) {
-                        $allRecords = array_values(array_filter($allRecords, function ($item) use ($prodiFilter) {
-                            return str_contains(strtolower($item['prodi']), strtolower($prodiFilter))
-                                || str_contains(strtolower($prodiFilter), strtolower($item['prodi']));
-                        }));
-                    }
-
-                    // Filter pencarian teks jika ada
-                    if ($searchFilter) {
-                        $allRecords = array_values(array_filter($allRecords, function ($item) use ($searchFilter) {
-                            return str_contains(strtolower($item['nama']), $searchFilter)
-                                || str_contains(strtolower($item['kode']), $searchFilter);
-                        }));
-                    }
-
-                    return [
-                        'success' => true,
-                        'data' => $allRecords,
-                        'total' => count($allRecords),
-                        'source' => 'campus_api_live',
+                foreach ($records as $r) {
+                    $allRecords[] = [
+                        'kode' => $r['kode_matkul'] ?? $r['kode'] ?? '',
+                        'nama' => $r['nama_matkul'] ?? $r['nama'] ?? '',
+                        'sks' => (int) ($r['sks_mk'] ?? $r['sks'] ?? 3),
+                        'prodi' => ! empty($r['prodi']) ? $r['prodi'] : $prodiName,
+                        'semester' => (int) ($r['semester'] ?? 1),
+                        'kurikulum' => $r['nama_kurikulum'] ?? '',
+                        'id_matkul' => $r['id_matkul'] ?? '',
                     ];
                 }
             } catch (\Throwable $e) {
-                Log::info('Koneksi matakuliah API kampus multi-prodi: '.$e->getMessage().' - Menggunakan kurikulum akademik terpadu.');
+                Log::warning("Gagal mengambil matakuliah prodi {$prodiName}: ".$e->getMessage());
+            }
+        }
+
+        if (! empty($allRecords)) {
+            // Filter berdasarkan prodi jika ada filter prodi
+            if ($prodiFilter) {
+                $allRecords = array_values(array_filter($allRecords, function ($item) use ($prodiFilter) {
+                    return str_contains(strtolower($item['prodi']), strtolower($prodiFilter))
+                        || str_contains(strtolower($prodiFilter), strtolower($item['prodi']));
+                }));
             }
 
-            return $this->getMatakuliahAcademicCatalog($options['search'] ?? null, $options['prodi'] ?? null);
-        });
+            // Filter pencarian teks jika ada
+            if ($searchFilter) {
+                $allRecords = array_values(array_filter($allRecords, function ($item) use ($searchFilter) {
+                    return str_contains(strtolower($item['nama']), $searchFilter)
+                        || str_contains(strtolower($item['kode']), $searchFilter);
+                }));
+            }
+
+            $result = [
+                'success' => true,
+                'data' => $allRecords,
+                'total' => count($allRecords),
+                'source' => 'campus_api_live',
+            ];
+
+            Cache::put($cacheKey, $result, now()->addHours(24));
+
+            return $result;
+        }
+
+        return $this->getMatakuliahAcademicCatalog($options['search'] ?? null, $options['prodi'] ?? null);
     }
 
     /**
