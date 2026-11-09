@@ -3,8 +3,12 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use App\Models\VirtualClassroom;
+use App\Services\CampusApiService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class VirtualClassroomAuthRbacTest extends TestCase
@@ -12,6 +16,7 @@ class VirtualClassroomAuthRbacTest extends TestCase
     use RefreshDatabase;
 
     protected User $dosen;
+
     protected User $mahasiswa;
 
     protected function setUp(): void
@@ -209,11 +214,29 @@ class VirtualClassroomAuthRbacTest extends TestCase
         $dosenRoom->assertStatus(200);
         $dosenRoom->assertSee('Host Utama (Dosen)');
         $dosenRoom->assertSee('Mute All Peserta');
+        $dosenRoom->assertSee('Share Screen');
+        $dosenRoom->assertSee('drag-splitter');
+        $dosenRoom->assertSee('classroom-split-container');
+        $dosenRoom->assertSee('external_api.js');
+        $dosenRoom->assertSee('jitsi-meet-container');
+        $dosenRoom->assertSee('btn-mode-presentation');
+        $dosenRoom->assertSee('btn-mode-split');
+        $dosenRoom->assertSee('btn-mode-video');
+        $dosenRoom->assertSee('id="mic-btn"', false);
+        $dosenRoom->assertSee('id="cam-btn"', false);
+        $dosenRoom->assertSee('id="share-screen-btn"', false);
 
         $mhsRoom = $this->actingAs($this->mahasiswa)->get('/room/3IN1-TEST');
         $mhsRoom->assertStatus(200);
         $mhsRoom->assertSee('Peserta (Mahasiswa)');
         $mhsRoom->assertSee('Raise Hand (Angkat Tangan)');
+        $mhsRoom->assertSee('Share Screen');
+        $mhsRoom->assertSee('Sync Lock');
+        $mhsRoom->assertSee('drag-splitter');
+        $mhsRoom->assertSee('external_api.js');
+        $mhsRoom->assertSee('jitsi-meet-container');
+        $mhsRoom->assertSee('id="mic-btn"', false);
+        $mhsRoom->assertSee('id="cam-btn"', false);
     }
 
     public function test_user_can_logout(): void
@@ -268,7 +291,7 @@ class VirtualClassroomAuthRbacTest extends TestCase
 
     public function test_dosen_on_demand_provisioning_from_campus_api(): void
     {
-        $this->mock(\App\Services\CampusApiService::class, function ($mock) {
+        $this->mock(CampusApiService::class, function ($mock) {
             $mock->shouldReceive('getDosen')
                 ->with(['search' => '0719117002'])
                 ->once()
@@ -331,9 +354,87 @@ class VirtualClassroomAuthRbacTest extends TestCase
         $res2 = $this->actingAs($dosen2)->get(route('dosen.dashboard'));
         $res2->assertStatus(200);
 
-        $rooms = \App\Models\VirtualClassroom::whereIn('dosen_id', [$dosen1->id, $dosen2->id])->get();
+        $rooms = VirtualClassroom::whereIn('dosen_id', [$dosen1->id, $dosen2->id])->get();
         $this->assertCount(2, $rooms);
         $this->assertNotSame($rooms[0]->room_code, $rooms[1]->room_code);
     }
-}
 
+    public function test_dosen_can_upload_pdf_presentation(): void
+    {
+        Storage::fake('public');
+        $classroom = VirtualClassroom::create([
+            'room_code' => '3IN1-TEST',
+            'title' => 'Uji Kelas Virtual',
+            'dosen_id' => $this->dosen->id,
+            'status' => 'live',
+        ]);
+
+        $file = UploadedFile::fake()->create('slide_kuliah.pdf', 500, 'application/pdf');
+
+        $response = $this->actingAs($this->dosen)->postJson('/dosen/classroom/3IN1-TEST/presentation', [
+            'presentation' => $file,
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertJson([
+            'success' => true,
+            'presentation_name' => 'slide_kuliah.pdf',
+            'presentation_type' => 'pdf',
+        ]);
+
+        $classroom->refresh();
+        $this->assertSame('slide_kuliah.pdf', $classroom->presentation_name);
+        $this->assertSame('pdf', $classroom->presentation_type);
+        Storage::disk('public')->assertExists($classroom->presentation_path);
+    }
+
+    public function test_dosen_can_upload_pptx_presentation(): void
+    {
+        Storage::fake('public');
+        $classroom = VirtualClassroom::create([
+            'room_code' => '3IN1-TEST',
+            'title' => 'Uji Kelas Virtual',
+            'dosen_id' => $this->dosen->id,
+            'status' => 'live',
+        ]);
+
+        $file = UploadedFile::fake()->create('materi_kuliah.pptx', 500, 'application/vnd.openxmlformats-officedocument.presentationml.presentation');
+
+        $response = $this->actingAs($this->dosen)->postJson('/dosen/classroom/3IN1-TEST/presentation', [
+            'presentation' => $file,
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertJson([
+            'success' => true,
+            'presentation_name' => 'materi_kuliah.pptx',
+            'presentation_type' => 'pptx',
+        ]);
+
+        $classroom->refresh();
+        $this->assertSame('materi_kuliah.pptx', $classroom->presentation_name);
+        $this->assertSame('pptx', $classroom->presentation_type);
+        Storage::disk('public')->assertExists($classroom->presentation_path);
+    }
+
+    public function test_presentation_file_can_be_streamed_via_route(): void
+    {
+        Storage::fake('public');
+        $classroom = VirtualClassroom::create([
+            'room_code' => '3IN1-TEST',
+            'title' => 'Uji Kelas Virtual',
+            'dosen_id' => $this->dosen->id,
+            'status' => 'live',
+        ]);
+
+        $file = UploadedFile::fake()->create('materi.pdf', 300, 'application/pdf');
+
+        $this->actingAs($this->dosen)->postJson('/dosen/classroom/3IN1-TEST/presentation', [
+            'presentation' => $file,
+        ]);
+
+        $response = $this->actingAs($this->mahasiswa)->get(route('classroom.presentation.file', '3IN1-TEST'));
+        $response->assertStatus(200);
+        $response->assertHeader('Content-Disposition', 'inline; filename="materi.pdf"');
+    }
+}

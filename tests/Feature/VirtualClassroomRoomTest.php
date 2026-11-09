@@ -16,6 +16,7 @@ class VirtualClassroomRoomTest extends TestCase
     use RefreshDatabase;
 
     private User $dosen;
+
     private User $mahasiswa;
 
     protected function setUp(): void

@@ -58,9 +58,10 @@ class CourseClass extends Model
 
     public function activeSession(): ?VirtualClassroom
     {
-        return $this->virtualClassrooms()
-            ->where('status', 'live')
-            ->latest()
-            ->first();
+        if ($this->relationLoaded('virtualClassrooms')) {
+            return $this->virtualClassrooms->where('status', 'live')->sortByDesc('created_at')->first();
+        }
+
+        return $this->virtualClassrooms()->where('status', 'live')->latest()->first();
     }
 }

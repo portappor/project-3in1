@@ -10,8 +10,6 @@ class EnsureUserHasRole
 {
     /**
      * Membatasi akses rute berdasarkan role pengguna (dosen atau mahasiswa).
-     *
-     * @param  string  ...$roles
      */
     public function handle(Request $request, Closure $next, string ...$roles): Response
     {
@@ -19,13 +17,14 @@ class EnsureUserHasRole
             if ($request->expectsJson()) {
                 return response()->json(['message' => 'Unauthenticated.'], 401);
             }
+
             return redirect()->route('login')->withErrors(['auth' => 'Silakan login terlebih dahulu.']);
         }
 
         if (! in_array($request->user()->role, $roles, true)) {
             if ($request->expectsJson()) {
                 return response()->json([
-                    'message' => 'Forbidden: Anda tidak memiliki hak akses untuk fitur ini.'
+                    'message' => 'Forbidden: Anda tidak memiliki hak akses untuk fitur ini.',
                 ], 403);
             }
 
@@ -38,10 +37,9 @@ class EnsureUserHasRole
                 $targetRoute = 'mahasiswa.dashboard';
             }
 
-            return redirect()->route($targetRoute)->with('error', 'Akses Ditolak: Halaman ini hanya dapat diakses oleh peran: ' . implode(', ', $roles) . '.');
+            return redirect()->route($targetRoute)->with('error', 'Akses Ditolak: Halaman ini hanya dapat diakses oleh peran: '.implode(', ', $roles).'.');
         }
 
         return $next($request);
     }
 }
-

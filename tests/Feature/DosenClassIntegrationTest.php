@@ -117,4 +117,30 @@ class DosenClassIntegrationTest extends TestCase
         $dashboardResponse->assertSee('SESI VIRTUAL SEDANG BERLANGSUNG');
         $dashboardResponse->assertSee('Masuk Kembali ke Ruang Kelas');
     }
+
+    public function test_dosen_cannot_start_session_for_another_dosens_class(): void
+    {
+        $dosenA = User::factory()->create(['role' => 'dosen']);
+        $dosenB = User::factory()->create(['role' => 'dosen']);
+
+        $class = CourseClass::create([
+            'kode_mk' => 'TIF201',
+            'nama_mk' => 'Pemrograman Web Lanjut',
+            'sks' => 3,
+            'nama_kelas' => 'Kelas A',
+            'prodi' => 'Teknik Informatika',
+            'semester' => 4,
+            'dosen_id' => $dosenA->id,
+            'hari' => 'Senin',
+            'jam_mulai' => '08:00',
+            'jam_selesai' => '10:30',
+        ]);
+
+        $response = $this->actingAs($dosenB)->post(route('dosen.classroom.create'), [
+            'course_class_id' => $class->id,
+            'title' => 'Pemrograman Web Lanjut (Kelas A)',
+        ]);
+
+        $response->assertStatus(403);
+    }
 }

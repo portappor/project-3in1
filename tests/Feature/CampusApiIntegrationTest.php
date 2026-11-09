@@ -77,6 +77,7 @@ class CampusApiIntegrationTest extends TestCase
                     && $request['filter'] === 'dosen'
                     && $request['search'] === 'Budi';
             }
+
             return true;
         });
     }
@@ -348,4 +349,3 @@ class CampusApiIntegrationTest extends TestCase
         $dosenTe->assertDontSee('Dosen Informatika Dua');
     }
 }
-

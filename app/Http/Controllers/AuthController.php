@@ -42,7 +42,7 @@ class AuthController extends Controller
         $password = (string) $request->input('password');
 
         // Proteksi Brute-Force: Maksimal 10 percobaan salah per menit
-        $throttleKey = Str::lower($username) . '|' . $request->ip();
+        $throttleKey = Str::lower($username).'|'.$request->ip();
 
         if (RateLimiter::tooManyAttempts($throttleKey, 10)) {
             $seconds = RateLimiter::availableIn($throttleKey);
@@ -78,9 +78,9 @@ class AuthController extends Controller
 
                 if ($matchedDosen) {
                     $rawName = $matchedDosen['nama_penduduk'] ?? $matchedDosen['nama'] ?? $matchedDosen['nama_dosen'] ?? $matchedDosen['name'] ?? 'Dosen UNUJA';
-                    $gelarDepan = ! empty($matchedDosen['gelar_depan']) ? trim((string) $matchedDosen['gelar_depan']) . ' ' : '';
-                    $gelarBelakang = ! empty($matchedDosen['gelar_belakang']) ? ', ' . trim((string) $matchedDosen['gelar_belakang']) : '';
-                    $name = trim($gelarDepan . $rawName . $gelarBelakang);
+                    $gelarDepan = ! empty($matchedDosen['gelar_depan']) ? trim((string) $matchedDosen['gelar_depan']).' ' : '';
+                    $gelarBelakang = ! empty($matchedDosen['gelar_belakang']) ? ', '.trim((string) $matchedDosen['gelar_belakang']) : '';
+                    $name = trim($gelarDepan.$rawName.$gelarBelakang);
 
                     $user = User::create([
                         'username' => (string) ($matchedDosen['nidn'] ?? $matchedDosen['nip'] ?? $username),

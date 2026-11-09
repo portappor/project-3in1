@@ -40,12 +40,13 @@ class CampusSyncService
 
                 if (! $username || ! $rawName) {
                     $stats['failed']++;
+
                     continue;
                 }
 
-                $gelarDepan = ! empty($item['gelar_depan']) ? trim((string) $item['gelar_depan']) . ' ' : '';
-                $gelarBelakang = ! empty($item['gelar_belakang']) ? ', ' . trim((string) $item['gelar_belakang']) : '';
-                $name = trim($gelarDepan . $rawName . $gelarBelakang);
+                $gelarDepan = ! empty($item['gelar_depan']) ? trim((string) $item['gelar_depan']).' ' : '';
+                $gelarBelakang = ! empty($item['gelar_belakang']) ? ', '.trim((string) $item['gelar_belakang']) : '';
+                $name = trim($gelarDepan.$rawName.$gelarBelakang);
 
                 $email = $item['email'] ?? $item['email_kampus'] ?? null;
                 $prodi = $item['prodi'] ?? $item['nama_prodi'] ?? $item['homebase'] ?? 'Teknik Informatika';
@@ -119,6 +120,7 @@ class CampusSyncService
 
                     if (! $username || ! $name) {
                         $stats['failed']++;
+
                         continue;
                     }
 
@@ -248,4 +250,3 @@ class CampusSyncService
         return [];
     }
 }
-

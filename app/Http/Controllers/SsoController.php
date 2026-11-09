@@ -25,9 +25,9 @@ class SsoController extends Controller
     {
         $url = (string) config('services.sso_unuja.url');
         $headers = [
-            'Accept'  => 'application/json',
-            'app_id'  => (string) config('services.sso_unuja.app_id'),
-            'dev_id'  => (string) config('services.sso_unuja.dev_id'),
+            'Accept' => 'application/json',
+            'app_id' => (string) config('services.sso_unuja.app_id'),
+            'dev_id' => (string) config('services.sso_unuja.dev_id'),
             'x-token' => (string) config('services.sso_unuja.x_token'),
         ];
 
@@ -52,9 +52,9 @@ class SsoController extends Controller
                 $user = User::updateOrCreate(
                     ['username' => $identifier],
                     [
-                        'name'     => $userData['nama'] ?? $userData['name'] ?? 'Pengguna UNUJA',
-                        'email'    => $userData['email'] ?? null,
-                        'role'     => ! empty($userData['nidn']) ? 'dosen' : 'mahasiswa',
+                        'name' => $userData['nama'] ?? $userData['name'] ?? 'Pengguna UNUJA',
+                        'email' => $userData['email'] ?? null,
+                        'role' => ! empty($userData['nidn']) ? 'dosen' : 'mahasiswa',
                         'password' => bcrypt(Str::random(32)),
                     ]
                 );
@@ -77,13 +77,14 @@ class SsoController extends Controller
 
             Log::warning('SSO Authorization Failed', [
                 'status' => $response->status(),
-                'body'   => $response->body(),
+                'body' => $response->body(),
             ]);
 
             return back()->withErrors(['login' => 'Kredensial SSO tidak valid atau ditolak server.']);
 
         } catch (\Throwable $e) {
-            Log::error('SSO Connection Error: ' . $e->getMessage());
+            Log::error('SSO Connection Error: '.$e->getMessage());
+
             return back()->withErrors(['login' => 'Gagal terhubung ke server otorisasi UNUJA.']);
         }
     }
@@ -96,8 +97,8 @@ class SsoController extends Controller
         $cacheKey = "sso:token:user:{$userId}";
 
         Cache::store('redis')->put($cacheKey, [
-            'token'      => $token,
-            'stored_at'  => now()->toIso8601String(),
+            'token' => $token,
+            'stored_at' => now()->toIso8601String(),
             'expires_at' => now()->addSeconds($ttlSeconds)->toIso8601String(),
         ], $ttlSeconds);
     }

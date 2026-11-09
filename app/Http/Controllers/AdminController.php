@@ -42,4 +42,3 @@ class AdminController extends Controller
         return back()->with('success', "Hak akses untuk pengguna {$user->name} ({$user->username}) berhasil diperbarui menjadi {$validated['role']}!");
     }
 }
-

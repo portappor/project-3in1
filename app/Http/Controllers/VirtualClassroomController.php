@@ -181,6 +181,10 @@ class VirtualClassroomController extends Controller
         $courseClassId = $request->input('course_class_id');
         $courseClass = $courseClassId ? CourseClass::find($courseClassId) : null;
 
+        if ($courseClass && $courseClass->dosen_id !== Auth::id() && ! Auth::user()->isAdmin()) {
+            abort(403, 'Anda tidak memiliki hak akses untuk memulai sesi perkuliahan kelas ini.');
+        }
+
         // Jika kelas ini sudah memiliki sesi live yang aktif, alihkan langsung tanpa menduplikasi ruang
         if ($courseClass) {
             $existingLiveRoom = $courseClass->activeSession();

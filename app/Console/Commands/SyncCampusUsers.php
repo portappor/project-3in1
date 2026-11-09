@@ -34,12 +34,13 @@ class SyncCampusUsers extends Command
         $search = $this->option('search') ? (string) $this->option('search') : '';
 
         if (! in_array($type, ['all', 'dosen', 'mahasiswa'], true)) {
-            $this->error("Opsi --type tidak valid! Pilih: all, dosen, atau mahasiswa.");
+            $this->error('Opsi --type tidak valid! Pilih: all, dosen, atau mahasiswa.');
+
             return self::FAILURE;
         }
 
-        $this->info("Memulai sinkronisasi data pengguna dari API Kampus...");
-        $this->line("Tipe: <comment>{$type}</comment>" . ($limit ? " | Limit: <comment>{$limit}</comment>" : "") . ($search ? " | Search: <comment>{$search}</comment>" : ""));
+        $this->info('Memulai sinkronisasi data pengguna dari API Kampus...');
+        $this->line("Tipe: <comment>{$type}</comment>".($limit ? " | Limit: <comment>{$limit}</comment>" : '').($search ? " | Search: <comment>{$search}</comment>" : ''));
 
         $summary = [];
 
@@ -71,14 +72,14 @@ class SyncCampusUsers extends Command
             }
 
             $this->newLine();
-            $this->info("✓ Sinkronisasi selesai!");
+            $this->info('✓ Sinkronisasi selesai!');
             $this->table(['Kategori', 'Total Data', 'Dibuat (Baru)', 'Diperbarui', 'Gagal / Dilewati'], $summary);
 
             return self::SUCCESS;
         } catch (\Throwable $e) {
-            $this->error("\nTerjadi kesalahan saat sinkronisasi: " . $e->getMessage());
+            $this->error("\nTerjadi kesalahan saat sinkronisasi: ".$e->getMessage());
+
             return self::FAILURE;
         }
     }
 }
-

@@ -80,7 +80,7 @@ class CampusDataController extends Controller
             }
         } catch (\Throwable $e) {
             $errorMessage = $e->getMessage();
-            Log::info("Campus API live request for [{$currentTab}] returned: " . $errorMessage);
+            Log::info("Campus API live request for [{$currentTab}] returned: ".$errorMessage);
             $data = $this->getFallbackData($currentTab, $selectedProdi);
             $isLive = false;
         }
@@ -122,11 +122,11 @@ class CampusDataController extends Controller
                 $msgParts[] = "Mahasiswa: {$summary['mahasiswa']['total']} data ({$summary['mahasiswa']['created']} baru, {$summary['mahasiswa']['updated']} diperbarui)";
             }
 
-            $detailMsg = ! empty($msgParts) ? ' [' . implode(', ', $msgParts) . ']' : '';
+            $detailMsg = ! empty($msgParts) ? ' ['.implode(', ', $msgParts).']' : '';
 
-            return back()->with('success', 'Sinkronisasi data ke database lokal users berhasil diselesaikan!' . $detailMsg);
+            return back()->with('success', 'Sinkronisasi data ke database lokal users berhasil diselesaikan!'.$detailMsg);
         } catch (\Throwable $e) {
-            return back()->with('error', 'Gagal melakukan sinkronisasi: ' . $e->getMessage());
+            return back()->with('error', 'Gagal melakukan sinkronisasi: '.$e->getMessage());
         }
     }
 
@@ -206,4 +206,3 @@ class CampusDataController extends Controller
         return $res;
     }
 }
-
