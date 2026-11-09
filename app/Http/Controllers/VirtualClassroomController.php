@@ -136,9 +136,14 @@ class VirtualClassroomController extends Controller
     /**
      * Dashboard untuk peran Mahasiswa (Participant).
      */
-    public function mahasiswaDashboard(CampusApiService $campusApi)
+    public function mahasiswaDashboard(Request $request, CampusApiService $campusApi)
     {
         $user = Auth::user();
+
+        $enrolledClasses = $user->enrolledClasses()
+            ->with(['dosen', 'virtualClassrooms'])
+            ->latest()
+            ->get();
 
         try {
             $jadwalList = $campusApi->getJadwal();
@@ -165,7 +170,7 @@ class VirtualClassroomController extends Controller
             ];
         }
 
-        return view('mahasiswa.dashboard', compact('user', 'jadwal'));
+        return view('mahasiswa.dashboard', compact('user', 'jadwal', 'enrolledClasses'));
     }
 
     /**
@@ -241,6 +246,16 @@ class VirtualClassroomController extends Controller
         ]);
 
         $code = Str::upper(trim($request->input('room_code')));
+        $classroom = VirtualClassroom::where('room_code', $code)->first();
+        $user = Auth::user();
+
+        if ($classroom && $classroom->course_class_id && $user && $user->isMahasiswa()) {
+            $isEnrolled = $classroom->courseClass && $classroom->courseClass->students->contains($user->id);
+            if (! $isEnrolled) {
+                return redirect()->route('mahasiswa.dashboard')
+                    ->with('error', 'Anda belum terdaftar dalam kelas matakuliah ini. Silakan hubungi Administrator untuk ploting kelas.');
+            }
+        }
 
         return redirect()->route('classroom.room', ['room_code' => $code]);
     }
@@ -248,12 +263,20 @@ class VirtualClassroomController extends Controller
     /**
      * Halaman Ruang Kelas Virtual 3in1 (Interactive Room).
      */
-    public function showRoom(string $room_code)
+    public function showRoom(Request $request, string $room_code)
     {
         $user = Auth::user();
         $code = Str::upper(trim($room_code));
 
         $classroom = VirtualClassroom::where('room_code', $code)->first();
+
+        if ($classroom && $classroom->course_class_id && $user && $user->isMahasiswa()) {
+            $isEnrolled = $classroom->courseClass && $classroom->courseClass->students->contains($user->id);
+            if (! $isEnrolled) {
+                return redirect()->route('mahasiswa.dashboard')
+                    ->with('error', 'Anda belum terdaftar dalam kelas matakuliah ini. Silakan hubungi Administrator untuk ploting kelas.');
+            }
+        }
 
         if (! $classroom) {
             $defaultDosen = $user->isDosen()
