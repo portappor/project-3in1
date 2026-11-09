@@ -9,10 +9,24 @@ use Illuminate\Support\Facades\Log;
 
 class CampusApiService
 {
+    /**
+     * Peta ID Program Studi Fakultas Teknik UNUJA (PDDIKTI id_sms).
+     */
+    public const TEKNIK_PRODI_SMS = [
+        'Teknik Elektro' => '0f6bb17f-efdd-493c-8939-30c215bd9fb1',
+        'Teknik Informatika' => '1319bfef-2188-4240-b7a3-7a507bec2e64',
+        'Teknologi Informasi' => '6bb7c485-08a3-465c-b549-e5223c2affe2',
+        'Teknik Industri Pertanian' => '6dc3cb7a-fc03-4c1a-a66f-faa4de36d6e8',
+    ];
+
     protected string $baseUrl;
+
     protected ?string $appId;
+
     protected ?string $devId;
+
     protected ?string $xToken;
+
     protected string $userAgent;
 
     public function __construct()
@@ -188,6 +202,7 @@ class CampusApiService
             $records = $response['data']['data'] ?? $response['data'] ?? [];
             $filtered = array_values(array_filter($records, function ($d) use ($p) {
                 $prodiNama = strtolower($d['nama_prodi'] ?? $d['prodi'] ?? $d['homebase'] ?? '');
+
                 return str_contains($prodiNama, $p) || str_contains($p, $prodiNama);
             }));
 
@@ -217,6 +232,7 @@ class CampusApiService
             $records = $response['data']['data'] ?? $response['data'] ?? [];
             $filtered = array_values(array_filter($records, function ($m) use ($p) {
                 $prodiNama = strtolower($m['nama_prodi'] ?? $m['prodi'] ?? '');
+
                 return str_contains($prodiNama, $p) || str_contains($p, $prodiNama);
             }));
 
@@ -252,32 +268,84 @@ class CampusApiService
     }
 
     /**
-     * Helper untuk mengambil data Matakuliah.
+     * Helper untuk mengambil data Matakuliah dengan dukungan multi-prodi id_sms & cache.
      *
      * @param  array<string, mixed>  $options
      * @return array<string, mixed>
      */
     public function getMatakuliah(array $options = []): array
     {
-        try {
-            $params = array_merge(['kode_matkul' => ''], $options);
-            $response = $this->getData('matakuliah', $params);
-            $records = $response['data']['data'] ?? $response['data'] ?? [];
-            if (! empty($records)) {
-                if (! empty($options['prodi'])) {
-                    $p = strtolower((string) $options['prodi']);
-                    $records = array_values(array_filter($records, function ($m) use ($p) {
-                        return str_contains(strtolower($m['prodi'] ?? $m['nama_prodi'] ?? ''), $p);
-                    }));
-                    $response['data'] = $records;
-                }
-                return $response;
-            }
-        } catch (\Throwable $e) {
-            Log::info("Koneksi matakuliah API kampus: " . $e->getMessage() . " - Menggunakan kurikulum akademik terpadu.");
-        }
+        $cacheKey = 'campus_api_all_matakuliah_'.md5(json_encode($options));
 
-        return $this->getMatakuliahAcademicCatalog($options['search'] ?? null, $options['prodi'] ?? null);
+        return Cache::remember($cacheKey, now()->addHours(24), function () use ($options): array {
+            $prodiFilter = ! empty($options['prodi']) ? trim((string) $options['prodi']) : null;
+            $searchFilter = ! empty($options['search']) ? strtolower(trim((string) $options['search'])) : null;
+
+            $allRecords = [];
+            $targetProdis = self::TEKNIK_PRODI_SMS;
+
+            if ($prodiFilter) {
+                $targetProdis = array_filter(self::TEKNIK_PRODI_SMS, function ($key) use ($prodiFilter) {
+                    return str_contains(strtolower($key), strtolower($prodiFilter));
+                }, ARRAY_FILTER_USE_KEY);
+
+                if (empty($targetProdis)) {
+                    $targetProdis = self::TEKNIK_PRODI_SMS;
+                }
+            }
+
+            try {
+                foreach ($targetProdis as $prodiName => $idSms) {
+                    $params = [
+                        'id_sms' => $idSms,
+                        'pagination' => 'off',
+                    ];
+                    $res = $this->getData('matakuliah', $params);
+                    $records = $res['data']['data'] ?? $res['data'] ?? [];
+
+                    foreach ($records as $r) {
+                        $allRecords[] = [
+                            'kode' => $r['kode_matkul'] ?? $r['kode'] ?? '',
+                            'nama' => $r['nama_matkul'] ?? $r['nama'] ?? '',
+                            'sks' => (int) ($r['sks_mk'] ?? $r['sks'] ?? 3),
+                            'prodi' => ! empty($r['prodi']) ? $r['prodi'] : $prodiName,
+                            'semester' => (int) ($r['semester'] ?? 1),
+                            'kurikulum' => $r['nama_kurikulum'] ?? '',
+                            'id_matkul' => $r['id_matkul'] ?? '',
+                        ];
+                    }
+                }
+
+                if (! empty($allRecords)) {
+                    // Filter berdasarkan prodi jika ada filter prodi
+                    if ($prodiFilter) {
+                        $allRecords = array_values(array_filter($allRecords, function ($item) use ($prodiFilter) {
+                            return str_contains(strtolower($item['prodi']), strtolower($prodiFilter))
+                                || str_contains(strtolower($prodiFilter), strtolower($item['prodi']));
+                        }));
+                    }
+
+                    // Filter pencarian teks jika ada
+                    if ($searchFilter) {
+                        $allRecords = array_values(array_filter($allRecords, function ($item) use ($searchFilter) {
+                            return str_contains(strtolower($item['nama']), $searchFilter)
+                                || str_contains(strtolower($item['kode']), $searchFilter);
+                        }));
+                    }
+
+                    return [
+                        'success' => true,
+                        'data' => $allRecords,
+                        'total' => count($allRecords),
+                        'source' => 'campus_api_live',
+                    ];
+                }
+            } catch (\Throwable $e) {
+                Log::info('Koneksi matakuliah API kampus multi-prodi: '.$e->getMessage().' - Menggunakan kurikulum akademik terpadu.');
+            }
+
+            return $this->getMatakuliahAcademicCatalog($options['search'] ?? null, $options['prodi'] ?? null);
+        });
     }
 
     /**
@@ -300,10 +368,11 @@ class CampusApiService
                     }));
                     $response['data'] = $records;
                 }
+
                 return $response;
             }
         } catch (\Throwable $e) {
-            Log::info("Koneksi jadwal API kampus: " . $e->getMessage() . " - Menggunakan jadwal perkuliahan terpadu.");
+            Log::info('Koneksi jadwal API kampus: '.$e->getMessage().' - Menggunakan jadwal perkuliahan terpadu.');
         }
 
         return $this->getJadwalAcademicCatalog($options['search'] ?? null, $options['prodi'] ?? null);
@@ -324,7 +393,7 @@ class CampusApiService
                 return $response;
             }
         } catch (\Throwable $e) {
-            Log::info("Koneksi tahun ajaran API kampus: " . $e->getMessage() . " - Menggunakan data semester aktif terpadu.");
+            Log::info('Koneksi tahun ajaran API kampus: '.$e->getMessage().' - Menggunakan data semester aktif terpadu.');
         }
 
         return $this->getTahunAjaranAcademicCatalog($options['search'] ?? null);
@@ -561,6 +630,7 @@ class CampusApiService
     {
         try {
             $token = $this->getAccessToken(forceRefresh: true);
+
             return [
                 'success' => true,
                 'message' => 'Koneksi ke API Kampus berhasil! Token otorisasi valid selama 6 jam.',
@@ -575,4 +645,3 @@ class CampusApiService
         }
     }
 }
-
