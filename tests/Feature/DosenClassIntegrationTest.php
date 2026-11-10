@@ -271,4 +271,86 @@ class DosenClassIntegrationTest extends TestCase
             'status' => 'live',
         ]);
     }
+
+    public function test_dosen_dashboard_recent_rooms_only_shows_rooms_for_assigned_classes_in_selected_semester(): void
+    {
+        $dosen = User::factory()->create(['role' => 'dosen']);
+
+        // Kelas 1 (Semester Aktif)
+        $classActive = CourseClass::create([
+            'kode_mk' => 'MK-101',
+            'nama_mk' => 'Sistem Pentanahan dan Proteksi',
+            'sks' => 3,
+            'nama_kelas' => 'Kelas A',
+            'prodi' => 'Teknik Elektro',
+            'semester' => 7,
+            'tahun_ajaran' => '2026/2027 Ganjil',
+            'dosen_id' => $dosen->id,
+            'hari' => 'Senin',
+            'jam_mulai' => '08:00',
+            'jam_selesai' => '10:00',
+        ]);
+
+        // Kelas 2 (Semester Lalu)
+        $classPast = CourseClass::create([
+            'kode_mk' => 'MK-102',
+            'nama_mk' => 'Dasar Tenaga Listrik',
+            'sks' => 3,
+            'nama_kelas' => 'Kelas B',
+            'prodi' => 'Teknik Elektro',
+            'semester' => 5,
+            'tahun_ajaran' => '2025/2026 Genap',
+            'dosen_id' => $dosen->id,
+            'hari' => 'Selasa',
+            'jam_mulai' => '10:00',
+            'jam_selesai' => '12:00',
+        ]);
+
+        // Room 1: Terhubung ke Kelas Aktif
+        $roomActive = VirtualClassroom::create([
+            'room_code' => '3IN1-ACTV1',
+            'title' => 'Sistem Pentanahan dan Proteksi (Kelas A)',
+            'dosen_id' => $dosen->id,
+            'course_class_id' => $classActive->id,
+            'status' => 'live',
+            'current_slide' => 1,
+            'total_slides' => 1,
+        ]);
+
+        // Room 2: Sesi ad-hoc tanpa kelas (course_class_id null)
+        $roomAdHoc = VirtualClassroom::create([
+            'room_code' => '3IN1-ADHOC',
+            'title' => 'Sesi Pembelajaran Interaktif Bebas',
+            'dosen_id' => $dosen->id,
+            'course_class_id' => null,
+            'status' => 'live',
+            'current_slide' => 1,
+            'total_slides' => 1,
+        ]);
+
+        // Room 3: Terhubung ke Kelas Semester Lalu
+        $roomPast = VirtualClassroom::create([
+            'room_code' => '3IN1-PAST1',
+            'title' => 'Dasar Tenaga Listrik (Kelas B)',
+            'dosen_id' => $dosen->id,
+            'course_class_id' => $classPast->id,
+            'status' => 'live',
+            'current_slide' => 1,
+            'total_slides' => 1,
+        ]);
+
+        // 1. Pada semester aktif (default), hanya Room 1 yang boleh tampil
+        $response = $this->actingAs($dosen)->get(route('dosen.dashboard'));
+        $response->assertStatus(200);
+        $response->assertSee('3IN1-ACTV1');
+        $response->assertDontSee('3IN1-ADHOC');
+        $response->assertDontSee('3IN1-PAST1');
+
+        // 2. Pada semester lalu, hanya Room 3 yang tampil
+        $responsePast = $this->actingAs($dosen)->get(route('dosen.dashboard', ['tahun_ajaran' => '2025/2026 Genap']));
+        $responsePast->assertStatus(200);
+        $responsePast->assertSee('3IN1-PAST1');
+        $responsePast->assertDontSee('3IN1-ACTV1');
+        $responsePast->assertDontSee('3IN1-ADHOC');
+    }
 }

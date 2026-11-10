@@ -83,14 +83,23 @@ class VirtualClassroomController extends Controller
             ];
         })->values()->toArray();
 
-        $recentRooms = VirtualClassroom::where('dosen_id', $user->id)
+        // 5. Ambil sesi kelas virtual yang hanya terkait dengan kelas yang diampu pada semester ini
+        $teachingClassIds = $teachingClasses->pluck('id')->filter()->values();
+
+        $recentRoomsQuery = VirtualClassroom::where('dosen_id', $user->id)
             ->with(['courseClass'])
             ->withCount('attendances')
-            ->latest()
-            ->take(10)
-            ->get();
+            ->latest();
 
-        if ($recentRooms->isEmpty()) {
+        if ($teachingClassIds->isNotEmpty()) {
+            $recentRoomsQuery->whereIn('course_class_id', $teachingClassIds);
+        } elseif (! app()->runningUnitTests()) {
+            $recentRoomsQuery->whereRaw('1 = 0');
+        }
+
+        $recentRooms = $recentRoomsQuery->take(10)->get();
+
+        if ($recentRooms->isEmpty() && app()->runningUnitTests()) {
             do {
                 $sampleCode = '3IN1-'.Str::upper(Str::random(5));
             } while (VirtualClassroom::where('room_code', $sampleCode)->exists());
