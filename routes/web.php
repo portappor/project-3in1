@@ -4,6 +4,7 @@ use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AdminCourseClassController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CampusDataController;
+use App\Http\Controllers\Dosen\DosenLectureSessionController;
 use App\Http\Controllers\VirtualClassroomController;
 use Illuminate\Support\Facades\Route;
 
@@ -52,6 +53,13 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/classroom/{room_code}/mute-all', [VirtualClassroomController::class, 'toggleMuteAll'])->name('classroom.mute_all');
         Route::get('/classroom/{room_code}/attendance/export', [VirtualClassroomController::class, 'exportAttendance'])->name('classroom.export_attendance');
         Route::get('/classroom/{room_code}/chat/export', [VirtualClassroomController::class, 'exportChat'])->name('classroom.export_chat');
+
+        // Pengaturan Sesi Perkuliahan (Online/Offline) & Presensi
+        Route::get('/classes/{class}/setup', [DosenLectureSessionController::class, 'setup'])->name('classes.session_setup');
+        Route::post('/classes/{class}/sessions', [DosenLectureSessionController::class, 'store'])->name('classes.sessions.store');
+        Route::get('/lectures/{session}/attendance', [DosenLectureSessionController::class, 'showAttendance'])->name('lectures.attendance');
+        Route::post('/lectures/{session}/attendance', [DosenLectureSessionController::class, 'saveAttendance'])->name('lectures.attendance.save');
+        Route::get('/lectures/{session}/attendance/export', [DosenLectureSessionController::class, 'exportAttendanceCsv'])->name('lectures.attendance.export');
     });
 
     // AREA MAHASISWA (PARTICIPANT)
