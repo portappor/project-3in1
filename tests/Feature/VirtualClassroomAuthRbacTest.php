@@ -219,6 +219,10 @@ class VirtualClassroomAuthRbacTest extends TestCase
         $dosenRoom->assertSee('classroom-split-container');
         $dosenRoom->assertSee('external_api.js');
         $dosenRoom->assertSee('jitsi-meet-container');
+        $dosenRoom->assertSee('Tatap Muka Jitsi Meet');
+        $dosenRoom->assertSee('permintaan moderator');
+        $dosenRoom->assertDontSee('btn-engine-webrtc');
+        $dosenRoom->assertDontSee('btn-engine-jitsi');
         $dosenRoom->assertSee('btn-mode-presentation');
         $dosenRoom->assertSee('btn-mode-split');
         $dosenRoom->assertSee('btn-mode-video');
@@ -235,6 +239,10 @@ class VirtualClassroomAuthRbacTest extends TestCase
         $mhsRoom->assertSee('drag-splitter');
         $mhsRoom->assertSee('external_api.js');
         $mhsRoom->assertSee('jitsi-meet-container');
+        $mhsRoom->assertSee('Tatap Muka Jitsi Meet');
+        $mhsRoom->assertSee('Otomatis bergabung begitu Host membuka ruangan');
+        $mhsRoom->assertDontSee('btn-engine-webrtc');
+        $mhsRoom->assertDontSee('btn-engine-jitsi');
         $mhsRoom->assertSee('id="mic-btn"', false);
         $mhsRoom->assertSee('id="cam-btn"', false);
     }
