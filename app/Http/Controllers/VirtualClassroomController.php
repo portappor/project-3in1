@@ -22,14 +22,66 @@ class VirtualClassroomController extends Controller
     /**
      * Dashboard untuk peran Dosen (Host).
      */
-    public function dosenDashboard(CampusApiService $campusApi)
+    public function dosenDashboard(Request $request, CampusApiService $campusApi)
     {
         $user = Auth::user();
 
+        // 1. Ambil daftar semester/tahun ajaran yang tersedia untuk Dosen ini
+        $availableSemesters = CourseClass::where('dosen_id', $user->id)
+            ->select('tahun_ajaran')
+            ->distinct()
+            ->pluck('tahun_ajaran')
+            ->filter()
+            ->values()
+            ->toArray();
+
+        if (empty($availableSemesters)) {
+            $availableSemesters = ['2026/2027 Ganjil'];
+        }
+
+        // Tentukan semester terpilih (prioritas: query param valid, jika tidak: default semester aktif pertama)
+        $defaultSemester = in_array('2026/2027 Ganjil', $availableSemesters, true) ? '2026/2027 Ganjil' : $availableSemesters[0];
+        $selectedTahunAjaran = (string) $request->input('tahun_ajaran', $defaultSemester);
+        if (! in_array($selectedTahunAjaran, $availableSemesters, true)) {
+            $selectedTahunAjaran = $defaultSemester;
+        }
+
+        // 2. Ambil kelas yang diampu Dosen pada semester terpilih
         $teachingClasses = $user->teachingClasses()
+            ->where('tahun_ajaran', $selectedTahunAjaran)
             ->with(['students', 'virtualClassrooms'])
-            ->latest()
+            ->orderBy('hari')
+            ->orderBy('jam_mulai')
             ->get();
+
+        // 3. Bangun data Jadwal Mengajar langsung dari CourseClass Admin
+        $jadwalMengajar = $teachingClasses->map(function ($class) {
+            return [
+                'id' => $class->id,
+                'hari' => $class->hari ?? 'Senin',
+                'jam' => ($class->jam_mulai ?? '08:00') . ' - ' . ($class->jam_selesai ?? '10:00'),
+                'nama_mk' => $class->nama_mk,
+                'kode_mk' => $class->kode_mk,
+                'kelas' => $class->nama_kelas,
+                'sks' => $class->sks,
+                'ruang' => $class->ruang ?? 'Ruang Kelas Virtual 3in1',
+                'prodi' => $class->prodi,
+                'course_class_id' => $class->id,
+            ];
+        })->toArray();
+
+        // 4. Bangun data Matakuliah yang Diampu langsung dari CourseClass Admin
+        $matakuliah = $teachingClasses->unique('kode_mk')->map(function ($class) {
+            return [
+                'kode' => $class->kode_mk,
+                'nama' => $class->nama_mk,
+                'sks' => $class->sks,
+                'semester' => $class->semester,
+                'kelas' => $class->nama_kelas,
+                'prodi' => $class->prodi,
+                'course_class_id' => $class->id,
+            ];
+        })->values()->toArray();
 
         $recentRooms = VirtualClassroom::where('dosen_id', $user->id)
             ->with(['courseClass'])
@@ -38,99 +90,15 @@ class VirtualClassroomController extends Controller
             ->take(10)
             ->get();
 
-        if ($recentRooms->isEmpty()) {
-            do {
-                $sampleCode = '3IN1-'.Str::upper(Str::random(5));
-            } while (VirtualClassroom::where('room_code', $sampleCode)->exists());
-
-            $sampleRoom = VirtualClassroom::create([
-                'room_code' => $sampleCode,
-                'title' => 'Sesi Pembelajaran Interaktif '.($user->prodi ?? 'Teknik'),
-                'dosen_id' => $user->id,
-                'status' => 'live',
-                'current_slide' => 1,
-                'total_slides' => 1,
-            ]);
-
-            ClassroomAttendance::firstOrCreate([
-                'virtual_classroom_id' => $sampleRoom->id,
-                'user_id' => $user->id,
-            ], [
-                'role' => 'host',
-                'joined_at' => now(),
-                'status' => 'hadir',
-            ]);
-
-            $recentRooms = VirtualClassroom::where('dosen_id', $user->id)
-                ->withCount('attendances')
-                ->latest()
-                ->get();
-        }
-
-        try {
-            $matakuliahList = $campusApi->getMatakuliah();
-            $matakuliah = $matakuliahList['data']['data'] ?? $matakuliahList['data'] ?? $matakuliahList;
-        } catch (\Throwable $e) {
-            $matakuliah = [
-                ['kode' => 'TIF201', 'nama' => 'Pemrograman Web Lanjut', 'sks' => 3, 'semester' => 4, 'kelas' => 'TI-4A'],
-                ['kode' => 'TIF302', 'nama' => 'Rekayasa Perangkat Lunak', 'sks' => 3, 'semester' => 5, 'kelas' => 'TI-5B'],
-                ['kode' => 'TIF105', 'nama' => 'Struktur Data & Algoritma', 'sks' => 3, 'semester' => 2, 'kelas' => 'TI-2A'],
-            ];
-        }
-
-        try {
-            $jadwalList = $campusApi->getJadwal();
-            $allJadwal = $jadwalList['data']['data'] ?? $jadwalList['data'] ?? $jadwalList;
-
-            // Prioritaskan jadwal yang diampu Dosen bersangkutan
-            $userName = strtolower($user->name);
-            $userNidn = strtolower((string) $user->username);
-            $userProdi = strtolower((string) ($user->prodi ?? ''));
-
-            $nameParts = array_filter(
-                explode(' ', preg_replace('/[^a-z0-9]/', ' ', $userName)),
-                fn ($p) => strlen($p) >= 4 && ! in_array($p, ['kom', 'dosen', 'teknik', 'ir', 'prof', 'dra', 'drs'], true)
-            );
-
-            $jadwalMengajar = array_values(array_filter($allJadwal, function ($j) use ($nameParts, $userNidn) {
-                $dosenNama = strtolower($j['dosen'] ?? $j['nama_dosen'] ?? '');
-                $jadwalNidn = strtolower((string) ($j['nidn'] ?? $j['nip'] ?? ''));
-
-                if ($jadwalNidn && $jadwalNidn === $userNidn) {
-                    return true;
-                }
-
-                foreach ($nameParts as $part) {
-                    if (str_contains($dosenNama, $part)) {
-                        return true;
-                    }
-                }
-
-                return false;
-            }));
-
-            // Jika belum ada jadwal spesifik atas nama dosen, saring berdasarkan prodi atau tampilkan jadwal akademik
-            if (empty($jadwalMengajar)) {
-                $prodiJadwal = array_values(array_filter($allJadwal, function ($j) use ($userProdi) {
-                    if (empty($userProdi)) {
-                        return false;
-                    }
-                    $jProdi = strtolower($j['prodi'] ?? '');
-
-                    return str_contains($jProdi, $userProdi) || str_contains($userProdi, $jProdi);
-                }));
-
-                $jadwalMengajar = ! empty($prodiJadwal) ? $prodiJadwal : $allJadwal;
-            }
-        } catch (\Throwable $e) {
-            $jadwalMengajar = [
-                ['hari' => 'Senin', 'jam' => '08:00 - 10:30', 'nama_mk' => 'Pemrograman Web Lanjut', 'kode_mk' => 'TIF201', 'kelas' => 'TI-4A', 'ruang' => 'Ruang Kelas Virtual 3in1 (A)'],
-                ['hari' => 'Rabu', 'jam' => '10:30 - 13:00', 'nama_mk' => 'Rekayasa Perangkat Lunak', 'kode_mk' => 'TIF302', 'kelas' => 'TI-5B', 'ruang' => 'Ruang Kelas Virtual 3in1 (B)'],
-                ['hari' => 'Kamis', 'jam' => '13:00 - 15:30', 'nama_mk' => 'Struktur Data & Algoritma', 'kode_mk' => 'TIF105', 'kelas' => 'TI-2A', 'ruang' => 'Ruang Kelas Virtual 3in1 (C)'],
-            ];
-        }
-
-        return view('dosen.dashboard', compact('user', 'recentRooms', 'matakuliah', 'jadwalMengajar', 'teachingClasses'));
+        return view('dosen.dashboard', compact(
+            'user',
+            'recentRooms',
+            'matakuliah',
+            'jadwalMengajar',
+            'teachingClasses',
+            'availableSemesters',
+            'selectedTahunAjaran'
+        ));
     }
 
     /**

@@ -27,6 +27,10 @@ class CourseClass extends Model
         'ruang',
     ];
 
+    protected $attributes = [
+        'tahun_ajaran' => '2026/2027 Ganjil',
+    ];
+
     /**
      * Get the attributes that should be cast.
      *

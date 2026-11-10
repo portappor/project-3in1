@@ -143,4 +143,55 @@ class DosenClassIntegrationTest extends TestCase
 
         $response->assertStatus(403);
     }
+
+    public function test_dosen_dashboard_filters_classes_by_current_semester(): void
+    {
+        $dosen = User::factory()->create(['role' => 'dosen']);
+
+        // Kelas Semester Aktif
+        $activeClass = CourseClass::create([
+            'kode_mk' => 'MK-AKTIF',
+            'nama_mk' => 'Mata Kuliah Semester Aktif',
+            'sks' => 3,
+            'nama_kelas' => 'Kelas A',
+            'prodi' => 'Teknologi Informasi',
+            'semester' => 7,
+            'tahun_ajaran' => '2026/2027 Ganjil',
+            'dosen_id' => $dosen->id,
+            'hari' => 'Senin',
+            'jam_mulai' => '08:00',
+            'jam_selesai' => '10:30',
+            'ruang' => 'Ruang 101',
+        ]);
+
+        // Kelas Semester Lalu
+        $pastClass = CourseClass::create([
+            'kode_mk' => 'MK-LALU',
+            'nama_mk' => 'Mata Kuliah Semester Lalu',
+            'sks' => 2,
+            'nama_kelas' => 'Kelas B',
+            'prodi' => 'Teknologi Informasi',
+            'semester' => 6,
+            'tahun_ajaran' => '2025/2026 Genap',
+            'dosen_id' => $dosen->id,
+            'hari' => 'Selasa',
+            'jam_mulai' => '10:30',
+            'jam_selesai' => '12:00',
+            'ruang' => 'Ruang 102',
+        ]);
+
+        // 1. Default request (tanpa query param) harus menampilkan semester aktif
+        $response = $this->actingAs($dosen)->get(route('dosen.dashboard'));
+        $response->assertStatus(200);
+        $response->assertViewHas('selectedTahunAjaran', '2026/2027 Ganjil');
+        $response->assertSee('Mata Kuliah Semester Aktif');
+        $response->assertDontSee('Mata Kuliah Semester Lalu');
+
+        // 2. Request dengan filter semester lalu
+        $responsePast = $this->actingAs($dosen)->get(route('dosen.dashboard', ['tahun_ajaran' => '2025/2026 Genap']));
+        $responsePast->assertStatus(200);
+        $responsePast->assertViewHas('selectedTahunAjaran', '2025/2026 Genap');
+        $responsePast->assertSee('Mata Kuliah Semester Lalu');
+        $responsePast->assertDontSee('Mata Kuliah Semester Aktif');
+    }
 }
