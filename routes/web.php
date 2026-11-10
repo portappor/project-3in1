@@ -43,8 +43,8 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/classes/{class}/plotting', [AdminCourseClassController::class, 'savePlotting'])->name('classes.plotting.save');
     });
 
-    // AREA DOSEN (HOST)
-    Route::middleware(['role:dosen'])->prefix('dosen')->name('dosen.')->group(function () {
+    // AREA DOSEN (HOST) & ADMIN
+    Route::middleware(['role:dosen,admin'])->prefix('dosen')->name('dosen.')->group(function () {
         Route::get('/dashboard', [VirtualClassroomController::class, 'dosenDashboard'])->name('dashboard');
         Route::post('/classroom/create', [VirtualClassroomController::class, 'createRoom'])->name('classroom.create');
         Route::post('/classroom/{room_code}/presentation', [VirtualClassroomController::class, 'uploadPresentation'])->name('classroom.presentation');
@@ -63,7 +63,7 @@ Route::middleware(['auth'])->group(function () {
     // RUANG KELAS VIRTUAL & INTERAKSI SINKRON (Host & Participant)
     Route::get('/room/{room_code}', [VirtualClassroomController::class, 'showRoom'])->name('classroom.room');
     Route::get('/classroom/{room_code}/state', [VirtualClassroomController::class, 'getRoomState'])->name('classroom.state');
-    Route::get('/classroom/{room_code}/presentation-file', [VirtualClassroomController::class, 'getPresentationFile'])->name('classroom.presentation.file');
+    Route::match(['GET', 'OPTIONS'], '/classroom/{room_code}/presentation-file', [VirtualClassroomController::class, 'getPresentationFile'])->name('classroom.presentation.file');
     Route::post('/classroom/{room_code}/chat', [VirtualClassroomController::class, 'sendChat'])->name('classroom.chat');
     Route::post('/classroom/{room_code}/raise-hand', [VirtualClassroomController::class, 'toggleRaiseHand'])->name('classroom.raise_hand');
     Route::post('/classroom/{room_code}/mic', [VirtualClassroomController::class, 'toggleMic'])->name('classroom.mic');

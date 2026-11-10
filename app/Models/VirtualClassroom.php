@@ -7,7 +7,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Support\Facades\Storage;
 
 class VirtualClassroom extends Model
 {
@@ -72,9 +71,9 @@ class VirtualClassroom extends Model
         }
 
         try {
-            return route('classroom.presentation.file', $this->room_code);
+            return route('classroom.presentation.file', $this->room_code, false);
         } catch (\Throwable) {
-            return Storage::disk('public')->url($this->presentation_path);
+            return '/classroom/'.urlencode($this->room_code).'/presentation-file';
         }
     }
 }

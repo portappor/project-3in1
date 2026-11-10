@@ -304,10 +304,15 @@ class PresentationService
 
         $mime = $mimeTypes[$ext] ?? (mime_content_type($fullPath) ?: 'application/octet-stream');
 
+        $safeFilename = str_replace(['"', "\r", "\n"], '', basename($fileName));
+
         return response()->file($fullPath, [
             'Content-Type' => $mime,
-            'Content-Disposition' => 'inline; filename="'.$fileName.'"',
+            'Content-Disposition' => 'inline; filename="'.$safeFilename.'"',
             'Cache-Control' => 'no-cache, private',
+            'Access-Control-Allow-Origin' => '*',
+            'Access-Control-Allow-Methods' => 'GET, HEAD, OPTIONS',
+            'Access-Control-Allow-Headers' => '*',
         ]);
     }
 }

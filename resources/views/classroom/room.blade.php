@@ -594,10 +594,27 @@
         }
     }
 
-    // Load PDF via PDF.js
+    // Load PDF via PDF.js with same-origin URL enforcement & credentials
     function loadPdfDocument(url, initialPage = 1) {
         showPdfLoader(true);
-        pdfjsLib.getDocument(url).promise.then((pdf) => {
+
+        // Enforce same-origin relative URL to prevent cross-origin CORS & auth cookie drops
+        let fetchUrl = url;
+        try {
+            if (fetchUrl && (fetchUrl.startsWith('http://') || fetchUrl.startsWith('https://'))) {
+                const parsed = new URL(fetchUrl);
+                fetchUrl = parsed.pathname + parsed.search;
+            }
+        } catch (e) {
+            console.warn('URL parse fallback:', e);
+        }
+
+        const loadingTask = pdfjsLib.getDocument({
+            url: fetchUrl,
+            withCredentials: true
+        });
+
+        loadingTask.promise.then((pdf) => {
             pdfDoc = pdf;
             totalSlides = pdfDoc.numPages;
             document.getElementById('total-slides').innerText = totalSlides;
@@ -724,6 +741,7 @@
         const ext = file.name.split('.').pop().toLowerCase();
         if (!['pdf', 'ppt', 'pptx'].includes(ext)) {
             alert('File yang diunggah harus bertipe PDF atau PowerPoint (.ppt, .pptx).');
+            input.value = '';
             return;
         }
 
@@ -740,10 +758,18 @@
             },
             body: formData
         })
-        .then(res => res.json())
+        .then(async (res) => {
+            const data = await res.json().catch(() => null);
+            if (!res.ok) {
+                const errorMsg = (data && data.message) ? data.message : `Gagal mengunggah file (HTTP ${res.status})`;
+                throw new Error(errorMsg);
+            }
+            return data;
+        })
         .then(data => {
             showPdfLoader(false);
-            if (data.success) {
+            input.value = '';
+            if (data && data.success) {
                 currentPdfUrl = data.presentation_url;
                 presentationType = data.presentation_type || ext;
                 presentationData = data.presentation_data || null;
@@ -753,13 +779,14 @@
                 renderPresentationView();
                 showToast(`Materi presentasi ${presentationType.toUpperCase()} berhasil diunggah!`);
             } else {
-                alert(data.message || 'Gagal mengunggah presentasi.');
+                alert((data && data.message) || 'Gagal mengunggah presentasi.');
             }
         })
         .catch(err => {
             console.error('Upload error:', err);
             showPdfLoader(false);
-            alert('Terjadi kesalahan saat mengunggah file materi.');
+            input.value = '';
+            alert(err.message || 'Terjadi kesalahan saat mengunggah file materi.');
         });
     }
 

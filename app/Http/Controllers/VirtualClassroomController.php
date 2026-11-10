@@ -300,14 +300,14 @@ class VirtualClassroomController extends Controller
                 'user_id' => $user->id,
             ],
             [
-                'role' => ($user->id === $classroom->dosen_id || $user->isDosen()) ? 'host' : 'participant',
+                'role' => ($user->id === $classroom->dosen_id || $user->isDosen() || $user->isAdmin()) ? 'host' : 'participant',
                 'joined_at' => now(),
                 'last_seen_at' => now(),
                 'status' => 'hadir',
             ]
         );
 
-        $isHost = ($user->id === $classroom->dosen_id) || $user->isDosen();
+        $isHost = ($user->id === $classroom->dosen_id) || $user->isDosen() || $user->isAdmin();
 
         // Pesan sambutan perdana jika diskusi masih kosong
         if ($classroom->chats()->count() === 0) {
