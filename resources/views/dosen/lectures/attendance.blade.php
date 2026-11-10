@@ -82,7 +82,7 @@
 
     <!-- Lembar Presensi Mahasiswa -->
     <div class="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-sm">
-        
+
         <form action="{{ route('dosen.lectures.attendance.save', $session->id) }}" method="POST">
             @csrf
 
@@ -140,7 +140,7 @@
                                     </td>
                                     <td class="py-3.5 px-3 text-center">
                                         <div class="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200 gap-1 status-group">
-                                            
+
                                             <!-- Hadir -->
                                             <label class="cursor-pointer">
                                                 <input type="radio" name="attendances[{{ $student->id }}][status]" value="hadir"
@@ -240,3 +240,4 @@ function updateCounters() {
 }
 </script>
 @endsection
+

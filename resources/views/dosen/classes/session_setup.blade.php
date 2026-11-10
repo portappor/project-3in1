@@ -106,7 +106,7 @@
                 </label>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    
+
                     <!-- Kartu Pilihan Mode Online -->
                     <div class="relative flex flex-col justify-between p-6 rounded-2xl border-2 border-purple-200 bg-gradient-to-br from-purple-50/50 to-indigo-50/30 hover:border-purple-500 hover:shadow-md transition">
                         <div>
@@ -213,3 +213,4 @@
 
 </div>
 @endsection
+

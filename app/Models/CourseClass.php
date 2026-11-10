@@ -74,6 +74,24 @@ class CourseClass extends Model
         return $this->hasMany(CourseLectureSession::class, 'course_class_id')->orderBy('pertemuan_ke');
     }
 
+    public function latestLectureSession(): ?CourseLectureSession
+    {
+        if ($this->relationLoaded('lectureSessions')) {
+            return $this->lectureSessions->sortByDesc('pertemuan_ke')->first();
+        }
+
+        return $this->lectureSessions()->latest('pertemuan_ke')->first();
+    }
+
+    public function activeLectureSession(): ?CourseLectureSession
+    {
+        if ($this->relationLoaded('lectureSessions')) {
+            return $this->lectureSessions->where('status', 'aktif')->sortByDesc('pertemuan_ke')->first();
+        }
+
+        return $this->lectureSessions()->where('status', 'aktif')->latest('pertemuan_ke')->first();
+    }
+
     public function nextMeetingNumber(): int
     {
         $maxMeeting = $this->lectureSessions()->max('pertemuan_ke') ?? 0;

@@ -149,7 +149,14 @@ class VirtualClassroomController extends Controller
         $user = Auth::user();
 
         $enrolledClasses = $user->enrolledClasses()
-            ->with(['dosen', 'virtualClassrooms'])
+            ->with([
+                'dosen',
+                'virtualClassrooms',
+                'lectureSessions' => fn ($q) => $q->latest('pertemuan_ke')->with([
+                    'attendances' => fn ($att) => $att->where('student_id', $user->id),
+                    'virtualClassroom',
+                ]),
+            ])
             ->latest()
             ->get();
 

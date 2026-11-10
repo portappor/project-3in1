@@ -31,7 +31,7 @@
                 </div>
                 <div>
                     <h2 class="text-xl font-extrabold text-slate-900 tracking-tight">Matakuliah &amp; Kelas Terdaftar Anda</h2>
-                    <p class="text-xs text-slate-500 mt-0.5">Daftar kelas perkuliahan hasil ploting KRS Anda. Masuk langsung ke ruang kelas saat Dosen memulai sesi.</p>
+                    <p class="text-xs text-slate-500 mt-0.5">Daftar kelas perkuliahan hasil ploting KRS Anda. Menyesuaikan metode perkuliahan (Online / Offline) yang telah diatur oleh Dosen.</p>
                 </div>
             </div>
             <div class="flex items-center space-x-2">
@@ -56,8 +56,12 @@
                 @foreach($enrolledClasses as $class)
                     @php
                         $activeSession = $class->activeSession();
+                        $latestLecture = $class->latestLectureSession();
+                        $isOnlineLive = $activeSession || ($latestLecture && $latestLecture->isOnline() && $latestLecture->status === 'aktif');
+                        $isOffline = $latestLecture && $latestLecture->isOffline();
+                        $myAttendance = $latestLecture ? $latestLecture->attendanceForStudent($user->id) : null;
                     @endphp
-                    <div class="bg-gradient-to-b from-white to-slate-50/50 rounded-2xl border {{ $activeSession ? 'border-red-300 ring-2 ring-red-500/20 shadow-md' : 'border-slate-200 hover:border-emerald-300 hover:shadow-md' }} p-5 transition flex flex-col justify-between">
+                    <div class="bg-gradient-to-b from-white to-slate-50/50 rounded-2xl border {{ $isOnlineLive ? 'border-red-300 ring-2 ring-red-500/20 shadow-md' : ($isOffline ? 'border-emerald-300 ring-2 ring-emerald-500/10 shadow-md' : 'border-slate-200 hover:border-emerald-300 hover:shadow-md') }} p-5 transition flex flex-col justify-between">
                         <div>
                             <!-- Header Kartu: Badge Status, Kode MK & SKS -->
                             <div class="flex items-start justify-between gap-2 mb-3">
@@ -70,10 +74,26 @@
                                     </span>
                                 </div>
 
-                                @if($activeSession)
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-red-100 text-red-700 border border-red-200 shadow-xs animate-pulse">
-                                        🔴 KELAS SEDANG LIVE
-                                    </span>
+                                @if($isOnlineLive)
+                                    <div class="flex flex-col items-end space-y-1">
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-red-100 text-red-700 border border-red-200 shadow-xs animate-pulse">
+                                            🔴 KELAS SEDANG LIVE
+                                        </span>
+                                        @if($latestLecture)
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-purple-100 text-purple-800">
+                                                Pertemuan {{ $latestLecture->pertemuan_ke }} (Online)
+                                            </span>
+                                        @endif
+                                    </div>
+                                @elseif($isOffline)
+                                    <div class="flex flex-col items-end space-y-1">
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200 shadow-xs">
+                                            🏫 KULIAH TATAP MUKA
+                                        </span>
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                            Pertemuan {{ $latestLecture->pertemuan_ke }}
+                                        </span>
+                                    </div>
                                 @else
                                     <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
                                         Belum Ada Sesi Aktif
@@ -107,20 +127,77 @@
                                 @if($class->ruang)
                                     <div class="flex items-center space-x-2">
                                         <i class="fa-solid fa-location-dot w-4 text-slate-400"></i>
-                                        <span>{{ $class->ruang }}</span>
+                                        <span>Ruang: {{ $class->ruang }}</span>
                                     </div>
                                 @endif
                             </div>
+
+                            <!-- Informasi Sesi yang Diatur Dosen -->
+                            @if($latestLecture)
+                                <div class="mt-4 pt-3 border-t border-slate-100 space-y-2">
+                                    @if($latestLecture->topik)
+                                        <div class="p-2.5 rounded-xl {{ $isOffline ? 'bg-emerald-50/70 border border-emerald-100' : 'bg-purple-50/70 border border-purple-100' }} text-xs">
+                                            <p class="text-[11px] font-bold {{ $isOffline ? 'text-emerald-900' : 'text-purple-900' }} flex items-center space-x-1.5">
+                                                <i class="fa-solid {{ $isOffline ? 'fa-book-open' : 'fa-video' }}"></i>
+                                                <span>Topik Pertemuan {{ $latestLecture->pertemuan_ke }}:</span>
+                                            </p>
+                                            <p class="text-xs text-slate-700 font-medium mt-0.5">
+                                                {{ $latestLecture->topik }}
+                                            </p>
+                                        </div>
+                                    @endif
+
+                                    <!-- Status Kehadiran Khusus Perkuliahan Offline -->
+                                    @if($isOffline)
+                                        <div class="flex items-center justify-between text-xs pt-1">
+                                            <span class="text-slate-500 font-medium">Status Kehadiran:</span>
+                                            @if($myAttendance)
+                                                @if($myAttendance->status === 'hadir')
+                                                    <span class="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 inline-flex items-center">
+                                                        <i class="fa-solid fa-check mr-1 text-emerald-600"></i> Hadir
+                                                    </span>
+                                                @elseif($myAttendance->status === 'izin')
+                                                    <span class="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-blue-100 text-blue-800 border border-blue-200 inline-flex items-center">
+                                                        <i class="fa-solid fa-envelope mr-1 text-blue-600"></i> Izin
+                                                    </span>
+                                                @elseif($myAttendance->status === 'sakit')
+                                                    <span class="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-200 inline-flex items-center">
+                                                        <i class="fa-solid fa-notes-medical mr-1 text-amber-600"></i> Sakit
+                                                    </span>
+                                                @elseif($myAttendance->status === 'alpa')
+                                                    <span class="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-rose-100 text-rose-800 border border-rose-200 inline-flex items-center">
+                                                        <i class="fa-solid fa-xmark mr-1 text-rose-600"></i> Alpa
+                                                    </span>
+                                                @endif
+                                            @else
+                                                <span class="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-600">
+                                                    Belum Dicatat
+                                                </span>
+                                            @endif
+                                        </div>
+                                    @endif
+                                </div>
+                            @endif
                         </div>
 
-                        <!-- Action Button: Masuk ke Kelas (Live) / Menunggu Dosen -->
+                        <!-- Action Button: Masuk ke Kelas (Live) / Tatap Muka Fisik / Menunggu Dosen -->
                         <div class="mt-5 pt-4 border-t border-slate-100">
-                            @if($activeSession)
-                                <a href="{{ route('classroom.room', $activeSession->room_code) }}"
-                                    class="w-full py-2.5 px-4 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white rounded-xl text-xs font-bold shadow-md shadow-red-600/20 transition flex items-center justify-center space-x-2">
-                                    <i class="fa-solid fa-right-to-bracket animate-bounce"></i>
-                                    <span>Masuk ke Kelas</span>
-                                </a>
+                            @if($isOnlineLive)
+                                @php
+                                    $roomCode = $activeSession ? $activeSession->room_code : ($latestLecture && $latestLecture->virtualClassroom ? $latestLecture->virtualClassroom->room_code : null);
+                                @endphp
+                                @if($roomCode)
+                                    <a href="{{ route('classroom.room', $roomCode) }}"
+                                        class="w-full py-2.5 px-4 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white rounded-xl text-xs font-bold shadow-md shadow-red-600/20 transition flex items-center justify-center space-x-2">
+                                        <i class="fa-solid fa-right-to-bracket animate-bounce"></i>
+                                        <span>Masuk ke Kelas</span>
+                                    </a>
+                                @endif
+                            @elseif($isOffline)
+                                <div class="w-full py-2.5 px-4 bg-emerald-50 text-emerald-800 rounded-xl text-xs font-semibold text-center flex items-center justify-center space-x-2 border border-emerald-200/80 shadow-xs">
+                                    <i class="fa-solid fa-chalkboard-user text-emerald-600"></i>
+                                    <span>Kuliah Tatap Muka di Ruang: <strong class="font-bold">{{ $latestLecture->ruang ?? $class->ruang ?? 'Ruang Kelas' }}</strong></span>
+                                </div>
                             @else
                                 <div class="w-full py-2.5 px-4 bg-slate-100 text-slate-500 rounded-xl text-xs font-semibold text-center flex items-center justify-center space-x-2 cursor-not-allowed border border-slate-200/60">
                                     <i class="fa-regular fa-hourglass-half text-slate-400"></i>

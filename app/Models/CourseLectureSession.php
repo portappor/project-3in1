@@ -65,4 +65,13 @@ class CourseLectureSession extends Model
     {
         return $this->mode === 'offline';
     }
+
+    public function attendanceForStudent(int $studentId): ?CourseLectureAttendance
+    {
+        if ($this->relationLoaded('attendances')) {
+            return $this->attendances->firstWhere('student_id', $studentId);
+        }
+
+        return $this->attendances()->where('student_id', $studentId)->first();
+    }
 }
