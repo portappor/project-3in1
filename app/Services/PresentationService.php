@@ -122,7 +122,7 @@ class PresentationService
                 if ($imageContent) {
                     $targetPath = "{$mediaOutputDir}/{$imageFileName}";
                     Storage::disk('public')->put($targetPath, $imageContent);
-                    $extractedImages[Str::lower($imageFileName)] = Storage::disk('public')->url($targetPath);
+                    $extractedImages[Str::lower($imageFileName)] = '/storage/'.$targetPath;
                 }
             }
         }
@@ -166,48 +166,55 @@ class PresentationService
         }
 
         try {
-            $xml = @simplexml_load_string($xmlContent);
-            if ($xml) {
-                // Register namespaces
-                $xml->registerXPathNamespace('p', 'http://schemas.openxmlformats.org/presentationml/2006/main');
-                $xml->registerXPathNamespace('a', 'http://schemas.openxmlformats.org/drawingml/2006/main');
+            $doc = new \DOMDocument;
+            $prevErrors = libxml_use_internal_errors(true);
+            $loaded = $doc->loadXML($xmlContent, LIBXML_NONET | LIBXML_NOWARNING | LIBXML_NOERROR);
+            libxml_use_internal_errors($prevErrors);
 
-                // Cari Title Shape
-                $titleNodes = $xml->xpath('//p:sp[p:nvSpPr/p:nvPr/p:ph[@type="title" or @type="ctrTitle"]]//a:t');
-                if (! empty($titleNodes)) {
+            if ($loaded) {
+                $xpath = new \DOMXPath($doc);
+                $xpath->registerNamespace('p', 'http://schemas.openxmlformats.org/presentationml/2006/main');
+                $xpath->registerNamespace('a', 'http://schemas.openxmlformats.org/drawingml/2006/main');
+
+                // 1. Ekstrak Judul dari title placeholder shape
+                $titleNodes = $xpath->query('//p:sp[p:nvSpPr/p:nvPr/p:ph[@type="title" or @type="ctrTitle"]]//a:t');
+                if ($titleNodes && $titleNodes->length > 0) {
                     $titleText = '';
                     foreach ($titleNodes as $t) {
-                        $titleText .= (string) $t.' ';
+                        $titleText .= $t->textContent.' ';
                     }
-                    $cleanTitle = trim($titleText);
+                    $cleanTitle = trim(preg_replace('/\s+/', ' ', $titleText));
                     if ($cleanTitle !== '') {
                         $title = $cleanTitle;
                     }
                 }
 
-                // Cari paragraf teks lainnya
-                $bodySpNodes = $xml->xpath('//p:sp[not(p:nvSpPr/p:nvPr/p:ph[@type="title" or @type="ctrTitle"])]//a:p');
-                if ($bodySpNodes) {
-                    foreach ($bodySpNodes as $pNode) {
-                        $pNode->registerXPathNamespace('a', 'http://schemas.openxmlformats.org/drawingml/2006/main');
-                        $tNodes = $pNode->xpath('.//a:t');
+                // 2. Ekstrak seluruh paragraf teks (<a:p>) dari slide
+                $pNodes = $xpath->query('//a:p');
+                if ($pNodes && $pNodes->length > 0) {
+                    foreach ($pNodes as $pNode) {
+                        $tNodes = $xpath->query('.//a:t', $pNode);
                         $pText = '';
-                        if ($tNodes) {
+                        if ($tNodes && $tNodes->length > 0) {
                             foreach ($tNodes as $t) {
-                                $pText .= (string) $t;
+                                $pText .= $t->textContent;
                             }
                         }
-                        $cleanP = trim($pText);
+                        $cleanP = trim(preg_replace('/\s+/', ' ', $pText));
                         if ($cleanP !== '' && $cleanP !== $title) {
+                            // Abaikan angka urutan tunggal seperti "1", "2"
+                            if (preg_match('/^[0-9]{1,2}$/', $cleanP)) {
+                                continue;
+                            }
                             $paragraphs[] = $cleanP;
                         }
                     }
                 }
 
-                // Fallback jika tidak ada title shape terpisah: gunakan paragraf pertama sebagai judul
+                // 3. Fallback judul jika belum terisi dari placeholder: gunakan paragraf pertama
                 if ($title === "Slide {$slideIndex}" && ! empty($paragraphs)) {
                     $first = array_shift($paragraphs);
-                    if (mb_strlen($first) <= 80) {
+                    if (mb_strlen($first) <= 100) {
                         $title = $first;
                     } else {
                         array_unshift($paragraphs, $first);
@@ -215,12 +222,29 @@ class PresentationService
                 }
             }
         } catch (\Throwable) {
-            // Abaikan kesalahan XML parsing, gunakan fallback slide
+            // Abaikan kesalahan parser
+        }
+
+        // 4. Fallback jika DOMDocument tidak menghasilkan paragraf dan judul masih default
+        if (empty($paragraphs) && $title === "Slide {$slideIndex}") {
+            preg_match_all('#<a:t[^>]*>(.*?)</a:t>#s', $xmlContent, $regexMatches);
+            if (! empty($regexMatches[1])) {
+                $rawTexts = [];
+                foreach ($regexMatches[1] as $raw) {
+                    $clean = trim(html_entity_decode(strip_tags($raw), ENT_QUOTES | ENT_XML1, 'UTF-8'));
+                    if ($clean !== '' && ! preg_match('/^[0-9]{1,2}$/', $clean)) {
+                        $rawTexts[] = $clean;
+                    }
+                }
+                if (! empty($rawTexts)) {
+                    $title = array_shift($rawTexts);
+                    $paragraphs = $rawTexts;
+                }
+            }
         }
 
         // Sertakan gambar media jika slide memiliki referensi atau jika media tersedia
         if (! empty($availableImages)) {
-            // Ambil maksimal 2 gambar relevan untuk slide
             $imageKeys = array_keys($availableImages);
             if (isset($imageKeys[$slideIndex - 1])) {
                 $images[] = $availableImages[$imageKeys[$slideIndex - 1]];

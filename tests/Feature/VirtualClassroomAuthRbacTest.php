@@ -5,11 +5,13 @@ namespace Tests\Feature;
 use App\Models\User;
 use App\Models\VirtualClassroom;
 use App\Services\CampusApiService;
+use App\Services\PresentationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
+use ZipArchive;
 
 class VirtualClassroomAuthRbacTest extends TestCase
 {
@@ -444,5 +446,75 @@ class VirtualClassroomAuthRbacTest extends TestCase
         $response = $this->actingAs($this->mahasiswa)->get(route('classroom.presentation.file', '3IN1-TEST'));
         $response->assertStatus(200);
         $response->assertHeader('Content-Disposition', 'inline; filename="materi.pdf"');
+    }
+
+    public function test_presentation_service_extracts_pptx_slide_text_and_paragraphs(): void
+    {
+        Storage::fake('public');
+
+        $tempPath = tempnam(sys_get_temp_dir(), 'test_pptx_').'.pptx';
+        $zip = new ZipArchive;
+        $this->assertTrue($zip->open($tempPath, ZipArchive::CREATE | ZipArchive::OVERWRITE));
+
+        $slideXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
+               xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+               xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
+            <p:cSld>
+                <p:spTree>
+                    <p:sp>
+                        <p:nvSpPr>
+                            <p:cNvPr id="1" name="Title 1"/>
+                            <p:cNvSpPr/>
+                            <p:nvPr>
+                                <p:ph type="title"/>
+                            </p:nvPr>
+                        </p:nvSpPr>
+                        <p:txBody>
+                            <a:bodyPr/>
+                            <a:p>
+                                <a:r>
+                                    <a:t>PENYUSUNAN PROPOSAL TUGAS AKHIR</a:t>
+                                </a:r>
+                            </a:p>
+                        </p:txBody>
+                    </p:sp>
+                    <p:sp>
+                        <p:nvSpPr>
+                            <p:cNvPr id="2" name="Content 2"/>
+                            <p:cNvSpPr/>
+                            <p:nvPr/>
+                        </p:nvSpPr>
+                        <p:txBody>
+                            <a:bodyPr/>
+                            <a:p>
+                                <a:r>
+                                    <a:t>PRODI TEKNOLOGI INFORMASI</a:t>
+                                </a:r>
+                            </a:p>
+                            <a:p>
+                                <a:r>
+                                    <a:t>Maulidiansyah, M.Kom</a:t>
+                                </a:r>
+                            </a:p>
+                        </p:txBody>
+                    </p:sp>
+                </p:spTree>
+            </p:cSld>
+        </p:sld>';
+
+        $zip->addFromString('ppt/slides/slide1.xml', $slideXml);
+        $zip->close();
+
+        $service = new PresentationService;
+        $parsed = $service->parsePptx($tempPath, 100);
+
+        @unlink($tempPath);
+
+        $this->assertSame(1, $parsed['total_slides']);
+        $this->assertSame('PENYUSUNAN PROPOSAL TUGAS AKHIR', $parsed['slides'][0]['title']);
+        $this->assertCount(2, $parsed['slides'][0]['paragraphs']);
+        $this->assertContains('PRODI TEKNOLOGI INFORMASI', $parsed['slides'][0]['paragraphs']);
+        $this->assertContains('Maulidiansyah, M.Kom', $parsed['slides'][0]['paragraphs']);
     }
 }
