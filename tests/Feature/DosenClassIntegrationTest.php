@@ -194,4 +194,29 @@ class DosenClassIntegrationTest extends TestCase
         $responsePast->assertSee('Mata Kuliah Semester Lalu');
         $responsePast->assertDontSee('Mata Kuliah Semester Aktif');
     }
+
+    public function test_dosen_dashboard_renders_semester_filter_and_assigned_class_select(): void
+    {
+        $dosen = User::factory()->create(['role' => 'dosen']);
+        $class = CourseClass::create([
+            'kode_mk' => 'TIF-701',
+            'nama_mk' => 'Arsitektur Enterprise',
+            'sks' => 3,
+            'nama_kelas' => 'TI-7A',
+            'prodi' => 'Teknologi Informasi',
+            'semester' => 7,
+            'tahun_ajaran' => '2026/2027 Ganjil',
+            'dosen_id' => $dosen->id,
+            'hari' => 'Rabu',
+            'jam_mulai' => '08:00',
+            'jam_selesai' => '10:30',
+            'ruang' => 'Lab Komputer 3',
+        ]);
+
+        $response = $this->actingAs($dosen)->get(route('dosen.dashboard'));
+        $response->assertStatus(200);
+        $response->assertSee('name="tahun_ajaran"', false);
+        $response->assertSee('name="course_class_id"', false);
+        $response->assertSee('TIF-701 - Arsitektur Enterprise');
+    }
 }

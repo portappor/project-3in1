@@ -33,7 +33,19 @@
                     <p class="text-xs text-slate-500 mt-0.5">Kelas perkuliahan resmi hasil ploting Admin. Mulai sesi interaktif 3-in-1 hanya dengan 1 klik.</p>
                 </div>
             </div>
-            <div class="flex items-center space-x-2">
+            <div class="flex flex-wrap items-center gap-2">
+                <!-- Dropdown Filter Semester -->
+                <form method="GET" action="{{ route('dosen.dashboard') }}" class="inline-flex items-center space-x-1.5">
+                    <label for="tahun_ajaran" class="text-xs font-semibold text-slate-500 hidden sm:inline">Semester:</label>
+                    <select name="tahun_ajaran" id="tahun_ajaran" onchange="this.form.submit()" class="text-xs font-bold text-slate-700 bg-white border border-slate-300 rounded-xl px-2.5 py-1.5 focus:ring-2 focus:ring-purple-600 focus:outline-none shadow-xs">
+                        @foreach($availableSemesters as $sem)
+                            <option value="{{ $sem }}" {{ ($selectedTahunAjaran ?? '') === $sem ? 'selected' : '' }}>
+                                {{ $sem }}
+                            </option>
+                        @endforeach
+                    </select>
+                </form>
+
                 <span class="px-3 py-1.5 rounded-xl bg-purple-50 text-purple-700 text-xs font-bold border border-purple-200/60 inline-flex items-center">
                     <i class="fa-solid fa-chalkboard mr-1.5"></i> {{ isset($teachingClasses) ? $teachingClasses->count() : 0 }} Kelas Ditugaskan
                 </span>
@@ -158,28 +170,36 @@
                 @csrf
                 <div>
                     <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                        Pilih Matakuliah (Dari API Kampus)
+                        Pilih Kelas / Mata Kuliah Diampu
                     </label>
-                    <input type="text" name="title" list="mk-list" required
-                        placeholder="Ketik atau pilih matakuliah..."
-                        class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-purple-600 focus:border-purple-600">
-                    <datalist id="mk-list">
-                        @foreach($matakuliah as $mk)
-                            <option value="{{ $mk['nama'] ?? $mk['nama_mk'] }} ({{ $mk['kode'] ?? $mk['kode_mk'] }})">
-                        @endforeach
-                    </datalist>
+                    @if(isset($teachingClasses) && $teachingClasses->isNotEmpty())
+                        <select name="course_class_id" required
+                            class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-purple-600 focus:border-purple-600 bg-white">
+                            <option value="">-- Pilih Kelas Perkuliahan Anda --</option>
+                            @foreach($teachingClasses as $tc)
+                                <option value="{{ $tc->id }}">
+                                    {{ $tc->kode_mk }} - {{ $tc->nama_mk }} ({{ $tc->nama_kelas }} &bull; {{ $tc->sks }} SKS)
+                                </option>
+                            @endforeach
+                        </select>
+                    @else
+                        <div class="p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-800">
+                            <i class="fa-solid fa-circle-exclamation mr-1 text-amber-600"></i>
+                            Belum ada kelas yang di-ploting oleh Admin untuk semester ini ({{ $selectedTahunAjaran ?? '2026/2027 Ganjil' }}).
+                        </div>
+                    @endif
                 </div>
 
                 <div class="p-3 bg-purple-50 rounded-xl border border-purple-100 text-xs text-purple-900 space-y-1">
                     <div class="font-semibold flex items-center space-x-1.5">
                         <i class="fa-solid fa-wand-magic-sparkles text-purple-600"></i>
-                        <span>Pengaturan Otomatis:</span>
+                        <span>Integrasi Otomatis:</span>
                     </div>
-                    <p class="text-purple-700">Kode akses unik akan di-generate otomatis untuk dibagikan ke mahasiswa.</p>
+                    <p class="text-purple-700">Mahasiswa yang di-ploting oleh Admin pada kelas ini akan langsung terhubung ke ruang kelas virtual.</p>
                 </div>
 
-                <button type="submit"
-                    class="w-full py-2.5 px-4 bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white rounded-xl text-sm font-semibold shadow-md shadow-purple-600/20 transition flex items-center justify-center space-x-2">
+                <button type="submit" {{ (!isset($teachingClasses) || $teachingClasses->isEmpty()) ? 'disabled' : '' }}
+                    class="w-full py-2.5 px-4 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed active:bg-purple-800 text-white rounded-xl text-sm font-semibold shadow-md shadow-purple-600/20 transition flex items-center justify-center space-x-2">
                     <i class="fa-solid fa-play"></i>
                     <span>Mulai Kelas Sekarang</span>
                 </button>
@@ -312,6 +332,7 @@
                         </div>
                         <form action="{{ route('dosen.classroom.create') }}" method="POST">
                             @csrf
+                            <input type="hidden" name="course_class_id" value="{{ $j['course_class_id'] ?? $j['id'] ?? '' }}">
                             <input type="hidden" name="title" value="{{ $j['nama_mk'] ?? $j['matakuliah'] }} ({{ $j['kelas'] ?? 'Kelas' }})">
                             <button type="submit" class="px-3.5 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-semibold shadow-sm transition flex items-center space-x-1.5">
                                 <i class="fa-solid fa-play text-[10px]"></i>
@@ -333,7 +354,7 @@
                 </div>
                 <div>
                     <h2 class="text-base font-bold text-slate-900">Matakuliah yang Diampu</h2>
-                    <p class="text-xs text-slate-500">Daftar beban matakuliah Anda semester ini</p>
+                    <p class="text-xs text-slate-500">Daftar beban matakuliah Anda semester {{ $selectedTahunAjaran ?? 'aktif' }}</p>
                 </div>
             </div>
 
@@ -357,7 +378,7 @@
                         </span>
                     </div>
                 @empty
-                    <p class="text-xs text-slate-400 text-center py-4">Belum ada matakuliah yang terdaftar.</p>
+                    <p class="text-xs text-slate-400 text-center py-4">Belum ada matakuliah yang terdaftar pada semester ini.</p>
                 @endforelse
             </div>
         </div>
