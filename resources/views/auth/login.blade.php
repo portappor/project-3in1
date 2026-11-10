@@ -14,7 +14,7 @@
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
         }
-        body { 
+        body {
             font-family: 'Plus Jakarta Sans', sans-serif;
             text-rendering: optimizeLegibility;
         }
@@ -73,19 +73,19 @@
 <body class="bg-slate-950 text-slate-100 min-h-screen lg:h-screen lg:max-h-screen lg:overflow-hidden selection:bg-blue-600 selection:text-white flex flex-col justify-between">
 
     <div class="h-full min-h-screen lg:min-h-0 lg:h-screen flex flex-col lg:flex-row w-full relative overflow-hidden">
-        
+
         <!-- ============================================== -->
         <!-- PANEL KIRI: HERO FOTO KAMPUS & IDENTITAS FT   -->
         <!-- ============================================== -->
         <div class="relative hidden lg:flex lg:w-7/12 xl:w-2/3 h-full flex-col justify-between p-8 xl:p-10 overflow-hidden bg-slate-950 border-r border-slate-800/60">
-            
+
             <!-- Background Image with Ultra-Smooth Ken-Burns Animation -->
             <div class="absolute inset-0 overflow-hidden">
-                <img src="{{ asset('images/fakultas-teknik-unuja.jpg') }}" 
-                     alt="Gedung Fakultas Teknik Universitas Nurul Jadid" 
+                <img src="{{ asset('images/fakultas-teknik-unuja.jpg') }}"
+                     alt="Gedung Fakultas Teknik Universitas Nurul Jadid"
                      class="w-full h-full object-cover object-center animate-ken-burns will-change-transform opacity-95">
             </div>
-            
+
             <!-- Layered Soft Gradient Overlays (Preserves photo richness while keeping text readable) -->
             <div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/60 to-blue-950/35"></div>
             <div class="absolute inset-0 bg-gradient-to-r from-slate-950/80 via-slate-950/30 to-transparent"></div>
@@ -95,7 +95,7 @@
 
             <!-- Content Container -->
             <div class="relative z-10 flex flex-col h-full justify-between animate-fade-in">
-                
+
                 <!-- Top Header: Institutional Badge -->
                 <div class="flex items-center justify-between">
                     <div class="inline-flex items-center gap-3 px-3.5 py-2 rounded-xl bg-slate-900/65 backdrop-blur-xl border border-white/15 text-white shadow-xl shadow-black/30 hover:border-white/30 transition-all duration-300">
@@ -120,11 +120,11 @@
                         <i class="fa-solid fa-atom text-blue-400 animate-spin" style="animation-duration: 12s;"></i>
                         <span>3in1 Virtual Class &bull; Single-Window</span>
                     </div>
-                    
+
                     <h1 class="text-3xl xl:text-4xl font-extrabold text-white leading-tight tracking-tight drop-shadow-sm">
                         Platform Pembelajaran Daring <span class="text-transparent bg-clip-text bg-gradient-to-r from-sky-300 via-blue-200 to-indigo-200">Terpadu Satu Jendela</span>
                     </h1>
-                    
+
                     <p class="text-slate-300 text-xs xl:text-sm mt-3 leading-relaxed font-light drop-shadow-sm max-w-xl">
                         Mengintegrasikan ruang tatap muka video conference, penampil dokumen slide interaktif tersinkronisasi, dan papan diskusi permanen dalam satu antarmuka terpadu.
                     </p>
@@ -178,16 +178,16 @@
         <!-- PANEL KANAN: FORM LOGIN & DEMO TESTING         -->
         <!-- ============================================== -->
         <div class="w-full lg:w-5/12 xl:w-1/3 h-full flex flex-col justify-center items-center p-5 sm:p-7 lg:p-8 bg-slate-950 relative overflow-hidden">
-            
+
             <!-- Ambient Glowing Spheres Behind Form (Apple/Stripe Style Depth) -->
             <div class="absolute -top-20 -right-20 w-72 h-72 rounded-full bg-blue-600/15 blur-[90px] pointer-events-none animate-float-1"></div>
             <div class="absolute -bottom-20 -left-20 w-72 h-72 rounded-full bg-indigo-600/15 blur-[90px] pointer-events-none animate-float-2"></div>
-            
+
             <!-- Subtle Grid Background -->
             <div class="absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:20px_20px] opacity-30 pointer-events-none"></div>
 
             <div class="w-full max-w-sm sm:max-w-md mx-auto my-auto relative z-10 animate-fade-in">
-                
+
                 <!-- Mobile Header Image Banner (Visible only on small screens) -->
                 <div class="lg:hidden rounded-xl overflow-hidden relative shadow-xl border border-white/15 mb-4 group">
                     <img src="{{ asset('images/fakultas-teknik-unuja.jpg') }}" alt="Fakultas Teknik UNUJA" class="w-full h-28 object-cover object-center group-hover:scale-105 transition-transform duration-700 ease-out">
@@ -223,7 +223,7 @@
 
                 <!-- Compact Glassmorphic Form Card -->
                 <div class="bg-slate-900/70 backdrop-blur-2xl rounded-2xl p-5 sm:p-6 border border-white/10 shadow-[0_15px_40px_rgba(0,0,0,0.6)]">
-                    
+
                     <!-- Compact Header Brand Row -->
                     <div class="flex items-center gap-3 mb-4">
                         <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/25 ring-2 ring-blue-500/20 shrink-0">
@@ -271,7 +271,7 @@
                                 <input type="password" id="password" name="password" required
                                     placeholder="Masukkan kata sandi..."
                                     class="w-full pl-9 pr-9 py-2 rounded-xl border border-slate-700/80 bg-slate-950/60 text-white placeholder-slate-500 text-xs focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 focus:bg-slate-900/90 transition-all duration-200 outline-none shadow-inner">
-                                <button type="button" onclick="togglePassword()" 
+                                <button type="button" onclick="togglePassword()"
                                     class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-white transition-colors duration-200"
                                     title="Tampilkan / Sembunyikan Kata Sandi">
                                     <i id="eye-icon" class="fa-solid fa-eye text-xs"></i>
@@ -290,7 +290,7 @@
                         <!-- Submit Button with Fluid Shimmer -->
                         <button type="submit"
                             class="btn-gradient-fluid w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-600 active:scale-[0.98] text-white font-bold text-xs sm:text-sm shadow-lg shadow-blue-600/30 hover:shadow-blue-600/50 flex items-center justify-center gap-2 group mt-1 cursor-pointer">
-                            <span>Masuk ke Kelas Virtual</span>
+                            <span>Masuk</span>
                             <i class="fa-solid fa-arrow-right text-xs transition-transform duration-300 group-hover:translate-x-1"></i>
                         </button>
                     </form>
@@ -304,26 +304,12 @@
                             </span>
                             <span class="text-[9px] text-slate-500">Klik 1-kali untuk mengisi</span>
                         </div>
-                        <div class="grid grid-cols-3 gap-1.5">
+                        <div class="flex justify-center">
                             <!-- Button Admin -->
                             <button type="button" onclick="fillDemo('admin', 'password', 'Admin')"
-                                class="py-1.5 px-2 rounded-lg border border-blue-500/25 bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 text-[11px] font-medium transition-all duration-200 hover:-translate-y-0.5 flex items-center justify-center gap-1.5 cursor-pointer">
-                                <i class="fa-solid fa-shield-halved text-blue-400 text-xs"></i>
+                                class="w-full max-w-[220px] py-2 px-4 rounded-xl border border-blue-500/30 bg-blue-500/15 hover:bg-blue-500/25 hover:border-blue-400/50 text-blue-300 text-xs font-semibold transition-all duration-200 hover:-translate-y-0.5 flex items-center justify-center gap-2 cursor-pointer shadow-sm">
+                                <i class="fa-solid fa-shield-halved text-blue-400 text-sm"></i>
                                 <span>Admin</span>
-                            </button>
-
-                            <!-- Button Dosen -->
-                            <button type="button" onclick="fillDemo('198001012010121001', 'password', 'Dosen')"
-                                class="py-1.5 px-2 rounded-lg border border-indigo-500/25 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 text-[11px] font-medium transition-all duration-200 hover:-translate-y-0.5 flex items-center justify-center gap-1.5 cursor-pointer">
-                                <i class="fa-solid fa-chalkboard-user text-indigo-400 text-xs"></i>
-                                <span>Dosen</span>
-                            </button>
-
-                            <!-- Button Mahasiswa -->
-                            <button type="button" onclick="fillDemo('2023001', 'password', 'Mahasiswa')"
-                                class="py-1.5 px-2 rounded-lg border border-emerald-500/25 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 text-[11px] font-medium transition-all duration-200 hover:-translate-y-0.5 flex items-center justify-center gap-1.5 cursor-pointer">
-                                <i class="fa-solid fa-user-graduate text-emerald-400 text-xs"></i>
-                                <span>Mahasiswa</span>
                             </button>
                         </div>
 
@@ -384,7 +370,7 @@
                 demoBadge.classList.remove('hidden');
                 demoBadge.style.opacity = '0';
                 demoBadge.style.transform = 'translateY(-4px)';
-                
+
                 requestAnimationFrame(() => {
                     demoBadge.style.transition = 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)';
                     demoBadge.style.opacity = '1';
