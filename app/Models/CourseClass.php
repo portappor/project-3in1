@@ -68,4 +68,16 @@ class CourseClass extends Model
 
         return $this->virtualClassrooms()->where('status', 'live')->latest()->first();
     }
+
+    public function lectureSessions(): HasMany
+    {
+        return $this->hasMany(CourseLectureSession::class, 'course_class_id')->orderBy('pertemuan_ke');
+    }
+
+    public function nextMeetingNumber(): int
+    {
+        $maxMeeting = $this->lectureSessions()->max('pertemuan_ke') ?? 0;
+
+        return min(16, $maxMeeting + 1);
+    }
 }
