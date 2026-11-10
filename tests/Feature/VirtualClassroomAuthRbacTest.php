@@ -517,4 +517,32 @@ class VirtualClassroomAuthRbacTest extends TestCase
         $this->assertContains('PRODI TEKNOLOGI INFORMASI', $parsed['slides'][0]['paragraphs']);
         $this->assertContains('Maulidiansyah, M.Kom', $parsed['slides'][0]['paragraphs']);
     }
+
+    public function test_presentation_streaming_serves_converted_pdf_and_allows_original_download(): void
+    {
+        Storage::fake('public');
+        Storage::disk('public')->put('presentations/materi.pptx', "PK\x03\x04test_content");
+        Storage::disk('public')->put('presentations/materi.pdf', "%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n");
+
+        $classroom = VirtualClassroom::create([
+            'room_code' => '3IN1-PPTX',
+            'title' => 'Uji Kelas PPTX',
+            'dosen_id' => $this->dosen->id,
+            'status' => 'live',
+            'presentation_path' => 'presentations/materi.pptx',
+            'presentation_name' => 'materi.pptx',
+            'presentation_type' => 'pptx',
+        ]);
+
+        // 1. Permintaan view biasa untuk browser: menyajikan PDF hasil konversi
+        $viewResponse = $this->actingAs($this->mahasiswa)->get(route('classroom.presentation.file', '3IN1-PPTX'));
+        $viewResponse->assertStatus(200);
+        $viewResponse->assertHeader('Content-Type', 'application/pdf');
+        $viewResponse->assertHeader('Content-Disposition', 'inline; filename="materi.pdf"');
+
+        // 2. Permintaan download asli (?download=1): menyajikan file PPTX asli
+        $downloadResponse = $this->actingAs($this->mahasiswa)->get(route('classroom.presentation.file', '3IN1-PPTX').'?download=1');
+        $downloadResponse->assertStatus(200);
+        $downloadResponse->assertHeader('Content-Disposition', 'attachment; filename="materi.pptx"');
+    }
 }

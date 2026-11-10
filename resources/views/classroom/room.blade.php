@@ -78,7 +78,7 @@
                         {{ Str::upper($classroom->presentation_type ?? 'PDF') }} Aktif
                     </span>
                     @if($classroom->presentation_path)
-                        <a id="presentation-download-btn" href="{{ route('classroom.presentation.file', $classroom->room_code) }}" target="_blank" download class="text-[10px] text-slate-400 hover:text-white px-1.5 py-0.5 rounded bg-slate-700/60 hover:bg-slate-700 border border-slate-600 transition flex items-center space-x-1" title="Unduh File Materi Asli">
+                        <a id="presentation-download-btn" href="{{ route('classroom.presentation.file', $classroom->room_code) }}?download=1" target="_blank" download class="text-[10px] text-slate-400 hover:text-white px-1.5 py-0.5 rounded bg-slate-700/60 hover:bg-slate-700 border border-slate-600 transition flex items-center space-x-1" title="Unduh File Materi Asli">
                             <i class="fa-solid fa-download"></i>
                             <span class="hidden md:inline">Unduh</span>
                         </a>
@@ -153,17 +153,17 @@
 
                 <!-- Presentation Section -->
                 <div id="presentation-stage-section" class="w-full lg:w-1/2 h-full flex flex-col items-center justify-center relative transition-all duration-300">
-                    <!-- PDF.js Canvas Container -->
-                    <div id="pdf-container" class="{{ $classroom->presentation_path && ($classroom->presentation_type ?? 'pdf') === 'pdf' ? '' : 'hidden' }} w-full h-full flex items-center justify-center relative">
+                    <!-- PDF.js Canvas Container (Visual Presentation Slides) -->
+                    <div id="pdf-container" class="{{ $classroom->presentation_path ? '' : 'hidden' }} w-full h-full flex items-center justify-center relative">
                         <canvas id="pdf-render-canvas" class="max-h-[480px] max-w-full rounded-xl shadow-2xl object-contain border border-slate-700"></canvas>
                         <div id="pdf-loader" class="hidden absolute inset-0 bg-slate-900/80 backdrop-blur-xs flex items-center justify-center text-white space-x-2">
                             <i class="fa-solid fa-spinner fa-spin text-xl text-blue-400"></i>
-                            <span class="text-xs">Memuat Slide PDF...</span>
+                            <span class="text-xs">Memuat Slide Materi...</span>
                         </div>
                     </div>
 
-                    <!-- PPTX / PPT Interactive Slide View Container -->
-                    <div id="pptx-container" class="{{ $classroom->presentation_path && in_array($classroom->presentation_type ?? 'pdf', ['pptx', 'ppt'], true) ? '' : 'hidden' }} w-full h-full flex flex-col justify-between bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl shadow-2xl p-6 border-2 border-slate-700 relative overflow-y-auto">
+                    <!-- PPTX / PPT Fallback Slide View Container -->
+                    <div id="pptx-container" class="hidden w-full h-full flex flex-col justify-between bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl shadow-2xl p-6 border-2 border-slate-700 relative overflow-y-auto">
                         <div class="flex justify-between items-center border-b border-slate-700/80 pb-2.5">
                             <span class="text-xs font-bold text-amber-400 flex items-center space-x-1.5 tracking-wider uppercase">
                                 <i class="fa-solid fa-file-powerpoint text-amber-500"></i>
@@ -536,17 +536,11 @@
             return;
         }
 
-        if (presentationType === 'pptx' || presentationType === 'ppt') {
-            if (pdfContainer) pdfContainer.classList.add('hidden');
-            if (fallbackSlide) fallbackSlide.classList.add('hidden');
-            if (pptxContainer) pptxContainer.classList.remove('hidden');
-            renderPptxSlide(currentSlide);
-        } else {
-            if (pptxContainer) pptxContainer.classList.add('hidden');
-            if (fallbackSlide) fallbackSlide.classList.add('hidden');
-            if (pdfContainer) pdfContainer.classList.remove('hidden');
-            loadPdfDocument(currentPdfUrl, currentSlide);
-        }
+        // Tampilkan dokumen visual asli via PDF.js canvas
+        if (pptxContainer) pptxContainer.classList.add('hidden');
+        if (fallbackSlide) fallbackSlide.classList.add('hidden');
+        if (pdfContainer) pdfContainer.classList.remove('hidden');
+        loadPdfDocument(currentPdfUrl, currentSlide);
     }
 
     function renderPptxSlide(num) {
@@ -620,15 +614,24 @@
             document.getElementById('total-slides').innerText = totalSlides;
 
             document.getElementById('pdf-container').classList.remove('hidden');
+            document.getElementById('pptx-container').classList.add('hidden');
             document.getElementById('fallback-slide').classList.add('hidden');
 
             renderPdfPage(initialPage);
             showPdfLoader(false);
         }).catch((err) => {
-            console.error('Error loading PDF:', err);
+            console.warn('Gagal memuat visual PDF, mencoba fallback slide deck:', err);
             showPdfLoader(false);
-            document.getElementById('pdf-container').classList.add('hidden');
-            document.getElementById('fallback-slide').classList.remove('hidden');
+            if (presentationType === 'pptx' || presentationType === 'ppt') {
+                document.getElementById('pdf-container').classList.add('hidden');
+                document.getElementById('pptx-container').classList.remove('hidden');
+                document.getElementById('fallback-slide').classList.add('hidden');
+                renderPptxSlide(currentSlide);
+            } else {
+                document.getElementById('pdf-container').classList.add('hidden');
+                document.getElementById('pptx-container').classList.add('hidden');
+                document.getElementById('fallback-slide').classList.remove('hidden');
+            }
         });
     }
 
@@ -638,16 +641,23 @@
         showPdfLoader(true);
 
         pdfDoc.getPage(num).then((page) => {
-            const containerWidth = document.getElementById('pdf-container').clientWidth || 700;
+            const container = document.getElementById('pdf-container');
+            const containerWidth = (container ? container.clientWidth : 0) || 700;
+            const containerHeight = (container ? container.clientHeight : 0) || 480;
             const unscaledViewport = page.getViewport({ scale: 1 });
-            const scale = Math.min((containerWidth - 30) / unscaledViewport.width, 480 / unscaledViewport.height);
-            const viewport = page.getViewport({ scale: scale > 0.4 ? scale : 0.8 });
+            const scale = Math.min((containerWidth - 24) / unscaledViewport.width, (containerHeight - 24) / unscaledViewport.height);
+            const actualScale = scale > 0.3 ? scale : 0.8;
+            const viewport = page.getViewport({ scale: actualScale });
 
-            canvas.height = viewport.height;
-            canvas.width = viewport.width;
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = Math.floor(viewport.width * dpr);
+            canvas.height = Math.floor(viewport.height * dpr);
+            canvas.style.width = Math.floor(viewport.width) + 'px';
+            canvas.style.height = Math.floor(viewport.height) + 'px';
 
             const renderContext = {
                 canvasContext: ctx,
+                transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : null,
                 viewport: viewport
             };
 
@@ -694,7 +704,7 @@
     // Host: Next Slide
     function nextSlide() {
         if (!IS_HOST) return;
-        const max = presentationType === 'pdf' ? (pdfDoc ? pdfDoc.numPages : totalSlides) : totalSlides;
+        const max = pdfDoc ? pdfDoc.numPages : (totalSlides || 1);
         if (currentSlide < max) {
             currentSlide++;
             syncSlideToServer(currentSlide, max);
@@ -706,16 +716,16 @@
         if (!IS_HOST) return;
         if (currentSlide > 1) {
             currentSlide--;
-            const max = presentationType === 'pdf' ? (pdfDoc ? pdfDoc.numPages : totalSlides) : totalSlides;
+            const max = pdfDoc ? pdfDoc.numPages : (totalSlides || 1);
             syncSlideToServer(currentSlide, max);
         }
     }
 
     function syncSlideToServer(slideNum, totalNum) {
-        if (presentationType === 'pptx' || presentationType === 'ppt') {
-            renderPptxSlide(slideNum);
-        } else if (pdfDoc) {
+        if (pdfDoc) {
             queueRenderPage(slideNum);
+        } else if (presentationType === 'pptx' || presentationType === 'ppt') {
+            renderPptxSlide(slideNum);
         } else {
             renderFallbackSlide(slideNum);
         }
@@ -931,10 +941,10 @@
         }
 
         if (mode === 'presentation' || mode === 'split') {
-            if (presentationType === 'pptx' || presentationType === 'ppt') {
-                renderPptxSlide(currentSlide);
-            } else if (pdfDoc) {
+            if (pdfDoc) {
                 setTimeout(() => queueRenderPage(currentSlide), 200);
+            } else if (presentationType === 'pptx' || presentationType === 'ppt') {
+                renderPptxSlide(currentSlide);
             }
         }
     }
@@ -1164,10 +1174,10 @@
 
     function resyncToHost() {
         currentSlide = hostCurrentSlide;
-        if (presentationType === 'pptx' || presentationType === 'ppt') {
-            renderPptxSlide(currentSlide);
-        } else if (pdfDoc) {
+        if (pdfDoc) {
             queueRenderPage(currentSlide);
+        } else if (presentationType === 'pptx' || presentationType === 'ppt') {
+            renderPptxSlide(currentSlide);
         } else {
             renderFallbackSlide(currentSlide);
         }
@@ -1178,13 +1188,13 @@
 
     function studentNextSlide() {
         if (isSyncLocked) return;
-        const max = presentationType === 'pdf' ? (pdfDoc ? pdfDoc.numPages : totalSlides) : totalSlides;
+        const max = pdfDoc ? pdfDoc.numPages : (totalSlides || 1);
         if (currentSlide < max) {
             currentSlide++;
-            if (presentationType === 'pptx' || presentationType === 'ppt') {
-                renderPptxSlide(currentSlide);
-            } else if (pdfDoc) {
+            if (pdfDoc) {
                 queueRenderPage(currentSlide);
+            } else if (presentationType === 'pptx' || presentationType === 'ppt') {
+                renderPptxSlide(currentSlide);
             } else {
                 renderFallbackSlide(currentSlide);
             }
@@ -1197,10 +1207,10 @@
         if (isSyncLocked) return;
         if (currentSlide > 1) {
             currentSlide--;
-            if (presentationType === 'pptx' || presentationType === 'ppt') {
-                renderPptxSlide(currentSlide);
-            } else if (pdfDoc) {
+            if (pdfDoc) {
                 queueRenderPage(currentSlide);
+            } else if (presentationType === 'pptx' || presentationType === 'ppt') {
+                renderPptxSlide(currentSlide);
             } else {
                 renderFallbackSlide(currentSlide);
             }
@@ -1239,10 +1249,10 @@
                 if (isSyncLocked) {
                     if (data.current_slide !== currentSlide) {
                         currentSlide = data.current_slide;
-                        if (presentationType === 'pptx' || presentationType === 'ppt') {
-                            renderPptxSlide(currentSlide);
-                        } else if (pdfDoc) {
+                        if (pdfDoc) {
                             queueRenderPage(currentSlide);
+                        } else if (presentationType === 'pptx' || presentationType === 'ppt') {
+                            renderPptxSlide(currentSlide);
                         } else {
                             renderFallbackSlide(currentSlide);
                         }
