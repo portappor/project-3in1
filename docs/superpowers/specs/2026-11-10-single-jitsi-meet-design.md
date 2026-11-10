@@ -70,3 +70,4 @@ The user selected **Option A**:
    - Run `vendor/bin/pint --format agent` to maintain strict code conventions.
 3. **Blade Template Syntax**:
    - Verify proper closing tags and JavaScript syntax in `resources/views/classroom/room.blade.php`.
+

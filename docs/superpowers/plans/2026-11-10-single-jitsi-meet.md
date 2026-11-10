@@ -254,3 +254,4 @@ Expected: Code formatted to Laravel standards.
 git add resources/views/classroom/room.blade.php tests/Feature/VirtualClassroomAuthRbacTest.php
 git commit -m "feat: simplify virtual classroom to single pure jitsi meet engine"
 ```
+

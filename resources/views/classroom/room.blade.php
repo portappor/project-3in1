@@ -231,101 +231,63 @@
                     </div>
                 </div>
 
-                <!-- Video Conference Section (Dual-Engine: Native WebRTC 3-in-1 & Jitsi Meet API) -->
+                <!-- Video Conference Section (Single Pure Jitsi Meet Engine) -->
                 <div id="jitsi-video-section" class="w-full lg:w-1/2 h-full flex flex-col relative rounded-2xl overflow-hidden border border-slate-700 bg-slate-950 transition-all duration-300">
                     
-                    <!-- Video Engine Switcher Bar -->
-                    <div class="z-20 bg-slate-900/90 backdrop-blur px-3 py-1.5 border-b border-slate-800 flex items-center justify-between text-xs">
+                    <!-- Video Stage Header Bar -->
+                    <div class="z-20 bg-slate-900/95 backdrop-blur px-3 py-1.5 border-b border-slate-800 flex flex-wrap items-center justify-between text-xs gap-2">
                         <div class="flex items-center space-x-2">
-                            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                            <span id="video-engine-status" class="font-semibold text-slate-200 text-[11px]">Tatap Muka WebRTC (Langsung Aktif)</span>
-                        </div>
-                        <div class="flex items-center bg-slate-950/80 p-0.5 rounded-lg border border-slate-700/60 text-[10px]">
-                            <button type="button" id="btn-engine-webrtc" onclick="switchVideoEngine('webrtc')"
-                                class="px-2 py-0.5 rounded font-bold bg-purple-600 text-white transition shadow-xs" title="Gunakan Kamera & Mic WebRTC langsung di browser">
-                                <i class="fa-solid fa-camera mr-1"></i>WebRTC
-                            </button>
-                            <button type="button" id="btn-engine-jitsi" onclick="switchVideoEngine('jitsi')"
-                                class="px-2 py-0.5 rounded font-medium text-slate-400 hover:text-white transition" title="Gunakan Server Video Conference Jitsi Meet">
-                                <i class="fa-solid fa-server mr-1"></i>Jitsi Meet
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Engine 1: Native WebRTC 3-in-1 Video Stage (Default / Zero Iframe Refusal) -->
-                    <div id="webrtc-stage" class="w-full flex-1 relative flex flex-col items-center justify-center bg-slate-950 overflow-hidden">
-                        <!-- Local Camera Stream Video -->
-                        <video id="local-camera-feed" autoplay playsinline muted class="w-full h-full object-cover"></video>
-
-                        <!-- Screen Share Overlay (Active when sharing screen) -->
-                        <div id="screen-share-overlay" class="hidden absolute inset-0 z-10 bg-black flex flex-col">
-                            <div class="bg-slate-900/90 px-3 py-1.5 flex items-center justify-between text-[11px] text-white border-b border-slate-800">
-                                <span class="flex items-center space-x-1.5 text-amber-400 font-semibold">
-                                    <i class="fa-solid fa-desktop animate-pulse"></i>
-                                    <span>Layar Anda Sedang Dibagikan (Screen Share)</span>
-                                </span>
-                                <button type="button" onclick="stopScreenShare()" class="px-2.5 py-0.5 rounded bg-rose-600 hover:bg-rose-700 text-white text-[10px] font-bold transition">
-                                    Hentikan Share
-                                </button>
-                            </div>
-                            <video id="screen-share-feed" autoplay playsinline class="w-full flex-1 object-contain bg-black"></video>
-                        </div>
-
-                        <!-- Camera OFF / Avatar Placeholder -->
-                        <div id="camera-off-placeholder" class="hidden absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-b from-slate-900 via-slate-950 to-indigo-950/70 text-white space-y-4 p-4 z-5">
-                            <div class="relative">
-                                <div class="w-24 h-24 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center text-3xl font-extrabold shadow-2xl border-4 border-slate-700/80">
-                                    {{ strtoupper(substr($user->name, 0, 2)) }}
-                                </div>
-                                <span id="webrtc-avatar-mic-badge" class="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-emerald-500 border-2 border-slate-900 flex items-center justify-center text-white text-xs shadow">
-                                    <i class="fa-solid fa-microphone"></i>
-                                </span>
-                            </div>
-                            <div class="text-center">
-                                <h3 class="text-base font-bold text-white">{{ $user->name }}</h3>
-                                <p class="text-xs text-purple-300 font-medium">{{ $isHost ? 'Host Dosen Pengampu' : 'Mahasiswa Peserta' }}</p>
-                                <p id="camera-off-desc" class="text-[11px] text-slate-400 mt-1">Kamera Dinonaktifkan</p>
-                            </div>
-                            <button type="button" onclick="toggleCam()" class="px-3.5 py-1.5 rounded-xl bg-purple-600/80 hover:bg-purple-600 text-white text-xs font-semibold border border-purple-400/40 transition shadow flex items-center space-x-1.5">
-                                <i class="fa-solid fa-video"></i>
-                                <span>Aktifkan Kamera</span>
-                            </button>
-                        </div>
-
-                        <!-- Bottom-left Participant Name & Mic Status Pill -->
-                        <div class="absolute bottom-3 left-3 z-10 bg-slate-950/80 backdrop-blur px-2.5 py-1 rounded-lg border border-slate-700/80 flex items-center space-x-2 text-white text-[11px] shadow-lg pointer-events-none">
-                            <i id="webrtc-stream-mic-icon" class="fa-solid fa-microphone text-emerald-400"></i>
-                            <span class="font-medium text-slate-200">{{ $user->name }} (Anda)</span>
-                            <span class="text-[9px] px-1 rounded bg-purple-900/60 text-purple-300 border border-purple-700">{{ $isHost ? 'Host' : 'Peserta' }}</span>
-                        </div>
-
-                        <!-- Top-right In-call Participant Counter -->
-                        <div class="absolute top-3 right-3 z-10 bg-slate-950/70 backdrop-blur px-2 py-0.5 rounded-md border border-slate-700/60 text-[10px] text-slate-300 pointer-events-none">
-                            <i class="fa-solid fa-users text-purple-400 mr-1"></i>
-                            <span id="webrtc-participant-badge">1 Di Ruang Tatap Muka</span>
-                        </div>
-                    </div>
-
-                    <!-- Engine 2: Jitsi Meet Stage (Opsi Eksternal) -->
-                    <div id="jitsi-stage" class="hidden w-full flex-1 relative flex flex-col bg-slate-950 overflow-hidden">
-                        <!-- Jitsi Notice Info -->
-                        <div class="bg-amber-950/80 border-b border-amber-800/80 px-3 py-1.5 text-amber-200 text-[11px] flex items-center justify-between">
-                            <span class="truncate pr-2">
-                                <i class="fa-solid fa-circle-info mr-1 text-amber-400"></i>
-                                Jitsi Publik: Jika muncul 'waiting for moderator', klik <strong>"Masuk"</strong> untuk login room.
+                            <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            <span id="video-engine-status" class="font-bold text-slate-100 text-[11px] tracking-wide flex items-center space-x-1.5">
+                                <i class="fa-solid fa-video text-purple-400"></i>
+                                <span>Tatap Muka Jitsi Meet</span>
                             </span>
-                            <button type="button" onclick="switchVideoEngine('webrtc')" class="shrink-0 px-2 py-0.5 bg-amber-600 hover:bg-amber-700 text-white rounded text-[10px] font-bold">
-                                Pakai WebRTC Lokal
-                            </button>
+                            <span class="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">meet.jit.si</span>
                         </div>
-                        <div id="jitsi-meet-container" class="w-full flex-1"></div>
-                        <!-- Jitsi Loading Placeholder -->
+                        
+                        <!-- Role-based Indicator Pill -->
+                        <div class="flex items-center space-x-1.5 text-[10px]">
+                            @if($isHost)
+                                <span class="px-2 py-0.5 rounded-md bg-purple-950/80 text-purple-300 border border-purple-700/80 font-medium flex items-center space-x-1" title="Anda bertindak sebagai Host Ruang Kelas">
+                                    <i class="fa-solid fa-crown text-amber-400 text-[9px]"></i>
+                                    <span>Host Dosen</span>
+                                </span>
+                            @else
+                                <span class="px-2 py-0.5 rounded-md bg-emerald-950/80 text-emerald-300 border border-emerald-700/80 font-medium flex items-center space-x-1">
+                                    <i class="fa-solid fa-user-graduate text-emerald-400 text-[9px]"></i>
+                                    <span>Peserta Mahasiswa</span>
+                                </span>
+                            @endif
+                        </div>
+                    </div>
+
+                    <!-- Role-based Operational Notice Banner -->
+                    @if($isHost)
+                        <div id="jitsi-host-notice" class="z-15 bg-indigo-950/90 border-b border-indigo-800/80 px-3 py-1 text-indigo-200 text-[10px] flex items-center justify-between">
+                            <span class="flex items-center space-x-1.5">
+                                <i class="fa-solid fa-lightbulb text-amber-300"></i>
+                                <span>Host: Jika video meminta izin, klik tombol <strong>"Masuk"</strong> untuk membuka ruangan bagi seluruh mahasiswa (permintaan moderator).</span>
+                            </span>
+                            <span class="text-[9px] text-indigo-300 font-mono">1x Login Google</span>
+                        </div>
+                    @else
+                        <div id="jitsi-student-notice" class="z-15 bg-slate-900/90 border-b border-slate-800 px-3 py-1 text-slate-300 text-[10px] flex items-center space-x-1.5">
+                            <i class="fa-solid fa-circle-check text-emerald-400"></i>
+                            <span>Otomatis bergabung begitu Host membuka ruangan (tanpa perlu login).</span>
+                        </div>
+                    @endif
+
+                    <!-- Sole Video Container: Jitsi Meet Iframe Mount Point -->
+                    <div id="jitsi-stage" class="w-full flex-1 relative flex flex-col bg-slate-950 overflow-hidden">
+                        <div id="jitsi-meet-container" class="w-full flex-1 h-full"></div>
+
+                        <!-- Jitsi Loading Spinner -->
                         <div id="jitsi-loader" class="pointer-events-none absolute inset-0 bg-slate-900/90 flex flex-col items-center justify-center text-white space-y-3 z-10 transition-opacity duration-500">
-                            <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 to-purple-600 flex items-center justify-center animate-pulse shadow-lg">
+                            <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center animate-pulse shadow-lg">
                                 <i class="fa-solid fa-video text-xl"></i>
                             </div>
-                            <p class="text-xs font-semibold tracking-wide">Menghubungkan ke API Video Conference Jitsi Meet...</p>
-                            <span class="text-[11px] text-slate-400">meet.jit.si</span>
+                            <p class="text-xs font-semibold tracking-wide">Menghubungkan ke Video Conference Jitsi Meet...</p>
+                            <span class="text-[11px] text-slate-400 font-mono">{{ config('services.jitsi.domain', 'meet.jit.si') }}</span>
                         </div>
                     </div>
 
@@ -504,9 +466,7 @@
     const IS_HOST = {{ $isHost ? 'true' : 'false' }};
     const CSRF_TOKEN = "{{ csrf_token() }}";
 
-    let currentVideoEngine = 'webrtc'; // 'webrtc' or 'jitsi'
-    let localStream = null;
-    let screenStream = null;
+    let currentVideoEngine = 'jitsi';
 
     let currentPdfUrl = "{{ $classroom->presentation_url ?? '' }}";
     let presentationType = "{{ $classroom->presentation_type ?? 'pdf' }}";
@@ -538,12 +498,12 @@
         "Implementasi WebSocket & Sinkronisasi State",
     ];
 
-    // Initialize Presentation & WebRTC Video Engine
+    // Initialize Presentation & Jitsi Video Engine
     document.addEventListener('DOMContentLoaded', () => {
         renderPresentationView();
 
-        // Initialize Native WebRTC Video by default (works directly on localhost, zero login, no iframe issues)
-        initWebRTC();
+        // Initialize Pure Jitsi Meet Video Conference
+        initJitsiMeet();
 
         // Start Periodic Synchronization Loop
         setInterval(pollRoomState, 2500);
@@ -804,112 +764,9 @@
     }
 
     // ===============================================================
-    // DUAL-ENGINE VIDEO CONFERENCING (WEBRTC 3-IN-1 & JITSI MEET API)
+    // SINGLE PURE JITSI MEET VIDEO CONFERENCING ENGINE
     // ===============================================================
 
-    // Native WebRTC Initialization (Direct hardware camera & mic in browser, zero iframe block)
-    async function initWebRTC() {
-        try {
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                console.warn('getUserMedia not supported in this browser environment.');
-                showCameraOffPlaceholder(true, 'Browser tidak mendukung akses kamera/mikrofon langsung.');
-                return;
-            }
-
-            localStream = await navigator.mediaDevices.getUserMedia({
-                video: {
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 },
-                    facingMode: 'user'
-                },
-                audio: true
-            });
-
-            const videoEl = document.getElementById('local-camera-feed');
-            if (videoEl) {
-                videoEl.srcObject = localStream;
-                videoEl.play().catch(e => console.warn('Video play error:', e));
-            }
-
-            isCamActive = true;
-            isMyMicActive = true;
-            updateCamButtonUI(true);
-            updateMicButtonUI(true);
-            showCameraOffPlaceholder(false);
-
-        } catch (err) {
-            console.warn('WebRTC getUserMedia denied or camera busy:', err);
-            isCamActive = false;
-            updateCamButtonUI(false);
-            showCameraOffPlaceholder(true, 'Kamera dinonaktifkan atau izin belum diberikan di browser.');
-
-            // Attempt audio-only if webcam hardware is missing or denied
-            try {
-                localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                isMyMicActive = true;
-                updateMicButtonUI(true);
-            } catch (audioErr) {
-                console.warn('WebRTC audio getUserMedia denied:', audioErr);
-                isMyMicActive = false;
-                updateMicButtonUI(false);
-            }
-        }
-    }
-
-    function showCameraOffPlaceholder(show, desc = null) {
-        const placeholder = document.getElementById('camera-off-placeholder');
-        const videoEl = document.getElementById('local-camera-feed');
-        const descEl = document.getElementById('camera-off-desc');
-        if (!placeholder) return;
-
-        if (desc && descEl) descEl.innerText = desc;
-
-        if (show) {
-            placeholder.classList.remove('hidden');
-            if (videoEl) videoEl.classList.add('hidden');
-        } else {
-            placeholder.classList.add('hidden');
-            if (videoEl) videoEl.classList.remove('hidden');
-        }
-    }
-
-    // Switch between WebRTC Native and Jitsi Meet External Engine
-    function switchVideoEngine(engine) {
-        currentVideoEngine = engine;
-        const webrtcStage = document.getElementById('webrtc-stage');
-        const jitsiStage = document.getElementById('jitsi-stage');
-        const btnWebrtc = document.getElementById('btn-engine-webrtc');
-        const btnJitsi = document.getElementById('btn-engine-jitsi');
-        const statusText = document.getElementById('video-engine-status');
-
-        if (engine === 'webrtc') {
-            if (webrtcStage) webrtcStage.classList.remove('hidden');
-            if (jitsiStage) jitsiStage.classList.add('hidden');
-            if (btnWebrtc) {
-                btnWebrtc.className = 'px-2 py-0.5 rounded font-bold bg-purple-600 text-white transition shadow-xs';
-            }
-            if (btnJitsi) {
-                btnJitsi.className = 'px-2 py-0.5 rounded font-medium text-slate-400 hover:text-white transition';
-            }
-            if (statusText) statusText.innerText = 'Tatap Muka WebRTC (Langsung Aktif)';
-            if (!localStream) {
-                initWebRTC();
-            }
-        } else {
-            if (webrtcStage) webrtcStage.classList.add('hidden');
-            if (jitsiStage) jitsiStage.classList.remove('hidden');
-            if (btnJitsi) {
-                btnJitsi.className = 'px-2 py-0.5 rounded font-bold bg-purple-600 text-white transition shadow-xs';
-            }
-            if (btnWebrtc) {
-                btnWebrtc.className = 'px-2 py-0.5 rounded font-medium text-slate-400 hover:text-white transition';
-            }
-            if (statusText) statusText.innerText = 'API Jitsi Meet (meet.jit.si)';
-            ensureJitsiLoaded();
-        }
-    }
-
-    // Secondary Engine: Jitsi Meet External API SDK
     function initJitsiMeet() {
         const container = document.getElementById('jitsi-meet-container');
         if (!container || isJitsiInitialized) return;
@@ -1012,12 +869,6 @@
         }
     }
 
-    function ensureJitsiLoaded() {
-        if (!isJitsiInitialized) {
-            initJitsiMeet();
-        }
-    }
-
     // Switch between Presentation, Split 50:50, and Full Video (Tatap Muka)
     function setStageMode(mode) {
         stageMode = mode;
@@ -1026,7 +877,6 @@
         const btnPres = document.getElementById('btn-mode-presentation');
         const btnSplit = document.getElementById('btn-mode-split');
         const btnVideo = document.getElementById('btn-mode-video');
-        const videoNotice = document.getElementById('video-mode-notice');
 
         if (!presSection || !jitsiSection) return;
 
@@ -1038,28 +888,19 @@
 
         if (mode === 'presentation') {
             if (btnPres) btnPres.className = 'px-2.5 py-1 rounded-lg text-xs font-semibold bg-purple-600 text-white transition flex items-center space-x-1 shadow-xs';
-            if (videoNotice) videoNotice.classList.add('hidden');
             presSection.className = 'w-full h-full flex flex-col items-center justify-center relative transition-all duration-300';
             presSection.classList.remove('hidden');
-            // Keep Video section alive off-screen so WebRTC video/audio is not terminated
+            // Keep Jitsi section alive off-screen so meeting audio/video is not disconnected
             jitsiSection.className = 'absolute -left-[9999px] w-1 h-1 overflow-hidden opacity-0 pointer-events-none';
         } else if (mode === 'split') {
             if (btnSplit) btnSplit.className = 'px-2.5 py-1 rounded-lg text-xs font-semibold bg-purple-600 text-white transition flex items-center space-x-1 shadow-xs';
-            if (videoNotice) videoNotice.classList.add('hidden');
             presSection.className = 'w-full lg:w-1/2 h-full flex flex-col items-center justify-center relative transition-all duration-300';
             presSection.classList.remove('hidden');
             jitsiSection.className = 'w-full lg:w-1/2 h-full flex flex-col relative rounded-2xl overflow-hidden border border-slate-700 bg-slate-950 transition-all duration-300';
-            if (currentVideoEngine === 'jitsi') {
-                ensureJitsiLoaded();
-            }
         } else if (mode === 'video') {
             if (btnVideo) btnVideo.className = 'px-2.5 py-1 rounded-lg text-xs font-semibold bg-purple-600 text-white transition flex items-center space-x-1 shadow-xs';
-            if (videoNotice) videoNotice.classList.remove('hidden');
             presSection.classList.add('hidden');
             jitsiSection.className = 'w-full h-full flex flex-col relative rounded-2xl overflow-hidden border border-slate-700 bg-slate-950 transition-all duration-300';
-            if (currentVideoEngine === 'jitsi') {
-                ensureJitsiLoaded();
-            }
         }
 
         if (mode === 'presentation' || mode === 'split') {
@@ -1087,7 +928,7 @@
             if (data.success) {
                 isAllMicMuted = data.is_all_mic_muted;
                 updateMuteAllButton(data.is_all_mic_muted);
-                if (jitsiApi && currentVideoEngine === 'jitsi' && data.is_all_mic_muted) {
+                if (jitsiApi && data.is_all_mic_muted) {
                     try {
                         jitsiApi.executeCommand('muteEveryone');
                     } catch (e) {
@@ -1118,7 +959,7 @@
 
     // Participant: Toggle Raise Hand
     function toggleMyRaiseHand() {
-        if (jitsiApi && currentVideoEngine === 'jitsi') {
+        if (jitsiApi) {
             try {
                 jitsiApi.executeCommand('toggleRaiseHand');
             } catch (e) {}
@@ -1150,46 +991,23 @@
         });
     }
 
-    // Central Toolbar: Toggle Microphone (WebRTC & Jitsi Integrated)
+    // Central Toolbar: Toggle Microphone (Jitsi Meet Integrated)
     function toggleMyMic() {
         if (isAllMicMuted && !IS_HOST) {
             showToast('Mikrofon dikunci oleh Host Dosen.', 'rose');
             return;
         }
 
-        isMyMicActive = !isMyMicActive;
-
-        // WebRTC track toggle
-        if (localStream) {
-            const audioTracks = localStream.getAudioTracks();
-            audioTracks.forEach(track => {
-                track.enabled = isMyMicActive;
-            });
-        }
-
-        // Update WebRTC avatar & stream mic icons
-        const streamMicIcon = document.getElementById('webrtc-stream-mic-icon');
-        const avatarMicBadge = document.getElementById('webrtc-avatar-mic-badge');
-        if (streamMicIcon) {
-            streamMicIcon.className = isMyMicActive ? 'fa-solid fa-microphone text-emerald-400' : 'fa-solid fa-microphone-slash text-rose-400';
-        }
-        if (avatarMicBadge) {
-            avatarMicBadge.className = isMyMicActive 
-                ? 'absolute bottom-0 right-0 w-7 h-7 rounded-full bg-emerald-500 border-2 border-slate-900 flex items-center justify-center text-white text-xs shadow'
-                : 'absolute bottom-0 right-0 w-7 h-7 rounded-full bg-rose-600 border-2 border-slate-900 flex items-center justify-center text-white text-xs shadow';
-            avatarMicBadge.innerHTML = `<i class="fa-solid fa-${isMyMicActive ? 'microphone' : 'microphone-slash'}"></i>`;
-        }
-
-        // Execute Audio Toggle command on Jitsi Meet if active
-        if (jitsiApi && currentVideoEngine === 'jitsi') {
+        if (jitsiApi) {
             try {
                 jitsiApi.executeCommand('toggleAudio');
             } catch (e) {
                 console.warn('Jitsi audio toggle command error:', e);
             }
+        } else {
+            isMyMicActive = !isMyMicActive;
+            updateMicButtonUI(isMyMicActive);
         }
-
-        updateMicButtonUI(isMyMicActive);
 
         // Sync state to backend
         fetch(`/classroom/${ROOM_CODE}/mic`, {
@@ -1229,35 +1047,18 @@
         }
     }
 
-    // Central Toolbar: Toggle Camera (WebRTC & Jitsi Integrated)
+    // Central Toolbar: Toggle Camera (Jitsi Meet Integrated)
     function toggleCam() {
-        isCamActive = !isCamActive;
-
-        if (localStream) {
-            const videoTracks = localStream.getVideoTracks();
-            if (videoTracks.length > 0) {
-                videoTracks.forEach(track => {
-                    track.enabled = isCamActive;
-                });
-                showCameraOffPlaceholder(!isCamActive, isCamActive ? '' : 'Kamera Dinonaktifkan');
-            } else if (isCamActive) {
-                initWebRTC();
-            }
-        } else if (isCamActive) {
-            initWebRTC();
-        } else {
-            showCameraOffPlaceholder(true, 'Kamera Dinonaktifkan');
-        }
-
-        if (jitsiApi && currentVideoEngine === 'jitsi') {
+        if (jitsiApi) {
             try {
                 jitsiApi.executeCommand('toggleVideo');
             } catch (e) {
                 console.warn('Jitsi video toggle command error:', e);
             }
+        } else {
+            isCamActive = !isCamActive;
+            updateCamButtonUI(isCamActive);
         }
-
-        updateCamButtonUI(isCamActive);
     }
 
     function updateCamButtonUI(active) {
@@ -1278,52 +1079,14 @@
         }
     }
 
-    // Central Toolbar: Toggle Share Screen (Native getDisplayMedia & Jitsi Integrated)
-    async function toggleShareScreen() {
-        if (currentVideoEngine === 'jitsi' && jitsiApi) {
+    // Central Toolbar: Toggle Share Screen (Jitsi Meet Integrated)
+    function toggleShareScreen() {
+        if (jitsiApi) {
             try {
                 jitsiApi.executeCommand('toggleShareScreen');
-                return;
             } catch (e) {
-                console.warn('Jitsi share screen command error, falling back to native WebRTC:', e);
+                console.warn('Jitsi share screen command error:', e);
             }
-        }
-
-        const overlay = document.getElementById('screen-share-overlay');
-        const screenFeed = document.getElementById('screen-share-feed');
-
-        if (!isScreenSharing) {
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
-                showToast('Fitur Share Screen tidak didukung pada browser ini.', 'rose');
-                return;
-            }
-
-            try {
-                screenStream = await navigator.mediaDevices.getDisplayMedia({
-                    video: { cursor: "always" },
-                    audio: false
-                });
-
-                if (screenFeed) {
-                    screenFeed.srcObject = screenStream;
-                    screenFeed.play().catch(e => console.warn('Screen feed error:', e));
-                }
-                if (overlay) overlay.classList.remove('hidden');
-
-                updateShareScreenUI(true);
-                showToast('Layar Anda sedang dibagikan secara langsung.');
-
-                screenStream.getVideoTracks()[0].onended = () => {
-                    stopScreenShare();
-                };
-            } catch (err) {
-                console.warn('Share screen canceled or error:', err);
-                if (err.name !== 'NotAllowedError') {
-                    showToast('Gagal membagikan layar: ' + err.message, 'rose');
-                }
-            }
-        } else {
-            stopScreenShare();
         }
     }
 
@@ -1343,21 +1106,6 @@
             if (icon) icon.className = 'fa-solid fa-desktop';
             if (text) text.innerText = 'Share Screen';
         }
-    }
-
-    function stopScreenShare() {
-        if (screenStream) {
-            screenStream.getTracks().forEach(track => track.stop());
-            screenStream = null;
-        }
-        const overlay = document.getElementById('screen-share-overlay');
-        if (overlay) overlay.classList.add('hidden');
-
-        const screenFeed = document.getElementById('screen-share-feed');
-        if (screenFeed) screenFeed.srcObject = null;
-
-        updateShareScreenUI(false);
-        showToast('Berhenti membagikan layar.');
     }
 
     // Participant: Toggle Sync Lock
