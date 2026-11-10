@@ -59,7 +59,7 @@ class VirtualClassroomController extends Controller
             return [
                 'id' => $class->id,
                 'hari' => $class->hari ?? 'Senin',
-                'jam' => ($class->jam_mulai ?? '08:00') . ' - ' . ($class->jam_selesai ?? '10:00'),
+                'jam' => ($class->jam_mulai ?? '08:00').' - '.($class->jam_selesai ?? '10:00'),
                 'nama_mk' => $class->nama_mk,
                 'kode_mk' => $class->kode_mk,
                 'kelas' => $class->nama_kelas,
@@ -89,6 +89,37 @@ class VirtualClassroomController extends Controller
             ->latest()
             ->take(10)
             ->get();
+
+        if ($recentRooms->isEmpty()) {
+            do {
+                $sampleCode = '3IN1-'.Str::upper(Str::random(5));
+            } while (VirtualClassroom::where('room_code', $sampleCode)->exists());
+
+            $sampleRoom = VirtualClassroom::create([
+                'room_code' => $sampleCode,
+                'title' => 'Sesi Pembelajaran Interaktif '.($user->prodi ?? 'Teknik'),
+                'dosen_id' => $user->id,
+                'status' => 'live',
+                'current_slide' => 1,
+                'total_slides' => 1,
+            ]);
+
+            ClassroomAttendance::firstOrCreate([
+                'virtual_classroom_id' => $sampleRoom->id,
+                'user_id' => $user->id,
+            ], [
+                'role' => 'host',
+                'joined_at' => now(),
+                'status' => 'hadir',
+            ]);
+
+            $recentRooms = VirtualClassroom::where('dosen_id', $user->id)
+                ->with(['courseClass'])
+                ->withCount('attendances')
+                ->latest()
+                ->take(10)
+                ->get();
+        }
 
         return view('dosen.dashboard', compact(
             'user',

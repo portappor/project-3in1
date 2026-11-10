@@ -219,4 +219,56 @@ class DosenClassIntegrationTest extends TestCase
         $response->assertSee('name="course_class_id"', false);
         $response->assertSee('TIF-701 - Arsitektur Enterprise');
     }
+
+    public function test_dosen_cannot_see_other_dosen_classes_and_can_create_room_from_assigned_class(): void
+    {
+        $dosenA = User::factory()->create(['role' => 'dosen']);
+        $dosenB = User::factory()->create(['role' => 'dosen']);
+
+        $classA = CourseClass::create([
+            'kode_mk' => 'MK-A',
+            'nama_mk' => 'Kelas Dosen A',
+            'sks' => 3,
+            'nama_kelas' => 'A1',
+            'prodi' => 'Teknologi Informasi',
+            'semester' => 7,
+            'tahun_ajaran' => '2026/2027 Ganjil',
+            'dosen_id' => $dosenA->id,
+            'hari' => 'Senin',
+            'jam_mulai' => '08:00',
+            'jam_selesai' => '10:00',
+        ]);
+
+        $classB = CourseClass::create([
+            'kode_mk' => 'MK-B',
+            'nama_mk' => 'Kelas Dosen B',
+            'sks' => 3,
+            'nama_kelas' => 'B1',
+            'prodi' => 'Teknologi Informasi',
+            'semester' => 7,
+            'tahun_ajaran' => '2026/2027 Ganjil',
+            'dosen_id' => $dosenB->id,
+            'hari' => 'Senin',
+            'jam_mulai' => '10:00',
+            'jam_selesai' => '12:00',
+        ]);
+
+        // Dosen A tidak boleh melihat kelas Dosen B
+        $response = $this->actingAs($dosenA)->get(route('dosen.dashboard'));
+        $response->assertSee('Kelas Dosen A');
+        $response->assertDontSee('Kelas Dosen B');
+
+        // Dosen A membuat room dengan course_class_id
+        $postResponse = $this->actingAs($dosenA)->post(route('dosen.classroom.create'), [
+            'course_class_id' => $classA->id,
+        ]);
+        $postResponse->assertRedirect();
+
+        $this->assertDatabaseHas('virtual_classrooms', [
+            'dosen_id' => $dosenA->id,
+            'course_class_id' => $classA->id,
+            'title' => 'Kelas Dosen A (A1)',
+            'status' => 'live',
+        ]);
+    }
 }
