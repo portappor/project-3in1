@@ -132,6 +132,12 @@
                                     <i class="fa-solid fa-arrow-right-to-bracket"></i>
                                     <span>Masuk Kembali ke Ruang Kelas</span>
                                 </a>
+                                <a href="{{ route('dosen.classes.session_setup', $class->id) }}"
+                                    title="Atur Sesi / Presensi"
+                                    class="px-3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold transition inline-flex items-center space-x-1">
+                                    <i class="fa-solid fa-sliders text-slate-600"></i>
+                                    <span class="hidden sm:inline">Atur</span>
+                                </a>
                                 <a href="{{ route('dosen.classroom.export_attendance', $activeSession->room_code) }}"
                                     title="Unduh Presensi (CSV)"
                                     class="px-3 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-semibold transition inline-flex items-center space-x-1">
@@ -139,15 +145,16 @@
                                     <span>Presensi</span>
                                 </a>
                             @else
-                                <form action="{{ route('dosen.classroom.create') }}" method="POST">
+                                <a href="{{ route('dosen.classes.session_setup', $class->id) }}"
+                                    class="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white rounded-xl text-xs font-bold shadow-sm transition inline-flex items-center space-x-1.5">
+                                    <i class="fa-solid fa-sliders text-xs"></i>
+                                    <span>Atur & Mulai Perkuliahan</span>
+                                </a>
+                                <form action="{{ route('dosen.classroom.create') }}" method="POST" class="inline">
                                     @csrf
                                     <input type="hidden" name="course_class_id" value="{{ $class->id }}">
                                     <input type="hidden" name="title" value="{{ $class->nama_mk }} ({{ $class->nama_kelas }})">
-                                    <button type="submit"
-                                        class="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white rounded-xl text-xs font-bold shadow-sm transition inline-flex items-center space-x-1.5">
-                                        <i class="fa-solid fa-video text-xs"></i>
-                                        <span>Mulai Sesi Virtual</span>
-                                    </button>
+                                    <button type="submit" class="sr-only">Mulai Sesi Virtual</button>
                                 </form>
                             @endif
                         </div>

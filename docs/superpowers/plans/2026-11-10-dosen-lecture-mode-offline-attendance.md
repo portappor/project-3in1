@@ -1,6 +1,6 @@
 # Dosen Lecture Mode Selection & Offline Attendance Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Allow Dosen to select a course class from their dashboard, configure the lecture session (Pertemuan 1–16, date, topic), choose between Online (Daring) or Offline (Tatap Muka) mode, and record/export student attendance on an offline attendance sheet when Offline mode is selected.
 
@@ -32,7 +32,7 @@
   - `CourseLectureAttendance`: `lectureSession()`, `student()`
   - `CourseClass::lectureSessions()`
 
-- [ ] **Step 1: Write the failing model & migration tests**
+- [x] **Step 1: Write the failing model & migration tests**
 
 Create `tests/Feature/CourseLectureSessionModelTest.php`:
 ```php
@@ -167,12 +167,12 @@ class CourseLectureSessionModelTest extends TestCase
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `php artisan test tests/Feature/CourseLectureSessionModelTest.php`
 Expected: Fails because table and classes do not exist.
 
-- [ ] **Step 3: Create migrations and models**
+- [x] **Step 3: Create migrations and models**
 
 1. Create migration `database/migrations/2026_11_10_080000_create_course_lecture_sessions_table.php`:
 ```php
@@ -364,13 +364,13 @@ class CourseLectureAttendance extends Model
     }
 ```
 
-- [ ] **Step 4: Run migration and test to verify it passes**
+- [x] **Step 4: Run migration and test to verify it passes**
 
 Run: `php artisan migrate`
 Run: `php artisan test tests/Feature/CourseLectureSessionModelTest.php`
 Expected: PASS with 3 tests passing.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add database/migrations/ app/Models/ tests/Feature/CourseLectureSessionModelTest.php
@@ -392,7 +392,7 @@ git commit -m "feat(lecture): add migrations and models for lecture sessions and
   - `GET /dosen/classes/{class}/setup` -> `dosen.classes.session_setup`
   - `POST /dosen/classes/{class}/sessions` -> `dosen.classes.sessions.store`
 
-- [ ] **Step 1: Write failing feature test for session setup and branching**
+- [x] **Step 1: Write failing feature test for session setup and branching**
 
 Create `tests/Feature/DosenLectureSessionSetupTest.php`:
 ```php
@@ -538,12 +538,12 @@ class DosenLectureSessionSetupTest extends TestCase
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `php artisan test tests/Feature/DosenLectureSessionSetupTest.php`
 Expected: Fails because routes and controller do not exist.
 
-- [ ] **Step 3: Implement `DosenLectureSessionController` and routes**
+- [x] **Step 3: Implement `DosenLectureSessionController` and routes**
 
 1. Create `app/Http/Controllers/Dosen/DosenLectureSessionController.php`:
 ```php
@@ -684,12 +684,12 @@ class DosenLectureSessionController extends Controller
         Route::get('/lectures/{session}/attendance/export', [DosenLectureSessionController::class, 'exportAttendanceCsv'])->name('lectures.attendance.export');
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `php artisan test tests/Feature/DosenLectureSessionSetupTest.php`
 Expected: PASS with 4 tests passing.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/Http/Controllers/Dosen/ routes/web.php tests/Feature/DosenLectureSessionSetupTest.php
@@ -710,7 +710,7 @@ git commit -m "feat(lecture): add controller and endpoints for lecture session s
   - `POST /dosen/lectures/{session}/attendance`
   - `GET /dosen/lectures/{session}/attendance/export`
 
-- [ ] **Step 1: Write failing feature test for attendance saving and CSV export**
+- [x] **Step 1: Write failing feature test for attendance saving and CSV export**
 
 Create `tests/Feature/DosenLectureAttendanceTest.php`:
 ```php
@@ -884,12 +884,12 @@ class DosenLectureAttendanceTest extends TestCase
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `php artisan test tests/Feature/DosenLectureAttendanceTest.php`
 Expected: Fails with unimplemented methods.
 
-- [ ] **Step 3: Implement methods in `DosenLectureSessionController`**
+- [x] **Step 3: Implement methods in `DosenLectureSessionController`**
 
 Add to `app/Http/Controllers/Dosen/DosenLectureSessionController.php`:
 ```php
@@ -1008,12 +1008,12 @@ Add to `app/Http/Controllers/Dosen/DosenLectureSessionController.php`:
     }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `php artisan test tests/Feature/DosenLectureAttendanceTest.php`
 Expected: PASS with 3 tests passing.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/Http/Controllers/Dosen/ tests/Feature/DosenLectureAttendanceTest.php
@@ -1035,7 +1035,7 @@ git commit -m "feat(lecture): add offline attendance sheet saving and csv export
 - Clean, responsive UI for `session_setup.blade.php` with Online / Offline cards.
 - Clean, interactive UI for `attendance.blade.php` with bulk select "Tandai Semua Hadir", counters, and CSV export button.
 
-- [ ] **Step 1: Create `session_setup.blade.php`**
+- [x] **Step 1: Create `session_setup.blade.php`**
 
 Create `resources/views/dosen/classes/session_setup.blade.php`:
 - Breadcrumbs navigating back to `dosen.dashboard`.
@@ -1046,7 +1046,7 @@ Create `resources/views/dosen/classes/session_setup.blade.php`:
   - Offline (Emerald): Launches offline attendance sheet directly.
 - History table of previous sessions for this class.
 
-- [ ] **Step 2: Create `attendance.blade.php`**
+- [x] **Step 2: Create `attendance.blade.php`**
 
 Create `resources/views/dosen/lectures/attendance.blade.php`:
 - Header banner with meeting number, date, room, class.
@@ -1055,23 +1055,24 @@ Create `resources/views/dosen/lectures/attendance.blade.php`:
 - Table with radio pills per student (`Hadir`, `Izin`, `Sakit`, `Alpa`) and note input.
 - Footer with "Simpan Presensi", "Unduh Rekap Presensi (CSV)", and "Kembali".
 
-- [ ] **Step 3: Update `resources/views/dosen/dashboard.blade.php`**
+- [x] **Step 3: Update `resources/views/dosen/dashboard.blade.php`**
 
 Update the action area in the class card:
 - Include primary button: **"Atur Perkuliahan"** (`route('dosen.classes.session_setup', $class->id)`).
 - If `$activeSession` is live, also provide the shortcut button: **"Masuk Kembali ke Ruang Kelas"** and **"Presensi"**.
 - Keep existing assertion strings: `Buka Sesi Kelas Baru`, `Mulai Sesi Virtual` (or accessible within form), `SESI VIRTUAL SEDANG BERLANGSUNG`.
 
-- [ ] **Step 4: Run full test suite & code styling**
+- [x] **Step 4: Run full test suite & code styling**
 
 Run: `php artisan test`
 Run: `vendor/bin/pint --dirty --format agent`
 Expected: All tests pass (70+ tests passing, 0 failures), Pint clean.
 
-- [ ] **Step 5: Commit & Push**
+- [x] **Step 5: Commit & Push**
 
 ```bash
 git add resources/views/
 git commit -m "feat(lecture): add blade views for session setup and offline attendance"
 git push origin main
 ```
+

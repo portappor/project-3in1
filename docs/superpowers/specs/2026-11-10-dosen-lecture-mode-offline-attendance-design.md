@@ -161,3 +161,4 @@ Halaman Pengaturan Sesi Perkuliahan (/dosen/classes/{class}/setup)
   6. Dosen can update and save offline attendance statuses.
   7. Dosen can export offline attendance to CSV.
   8. Full test suite remains 100% passing (all 70 existing tests pass).
+
